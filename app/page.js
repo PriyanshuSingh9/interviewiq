@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { ArrowRight, Code2, BrainCircuit, Activity, BarChart } from "lucide-react";
 import Link from "next/link";
 
+import { SignedIn, SignInButton, SignUpButton, SignedOut, UserButton } from "@clerk/nextjs";
+
 export default function LandingPage() {
   const fadeUpVariant = {
     hidden: { opacity: 0, y: 30 },
@@ -34,12 +36,21 @@ export default function LandingPage() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/login" className="text-sm font-medium text-white hover:text-mongodb-neon transition-colors hidden sm:block">
-            Sign In
-          </Link>
-          <button className="bg-mongodb-neon hover:bg-[#00c753] text-mongodb-bg px-5 py-2.5 rounded text-sm font-semibold transition-all duration-200 shadow-[0_0_15px_rgba(0,237,100,0.3)] hover:shadow-[0_0_25px_rgba(0,237,100,0.5)]">
-            Get Started
-          </button>
+          <SignedOut>
+            <SignInButton>
+              <button>
+                Sign In
+              </button>
+            </SignInButton>
+            <SignUpButton>
+              <button className="bg-mongodb-neon hover:bg-[#00c753] text-mongodb-bg px-5 py-2.5 rounded text-sm font-semibold transition-all duration-200 shadow-[0_0_15px_rgba(0,237,100,0.3)] hover:shadow-[0_0_25px_rgba(0,237,100,0.5)]">
+                Get Started
+              </button>
+            </SignUpButton>
+          </SignedOut>
+          <SignedIn>
+            <UserButton />
+          </SignedIn>
         </div>
       </nav>
 
@@ -71,9 +82,11 @@ export default function LandingPage() {
           </motion.p>
 
           <motion.div variants={fadeUpVariant} className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button className="w-full sm:w-auto bg-mongodb-neon hover:bg-[#00c753] text-mongodb-bg px-8 py-3.5 rounded text-lg font-semibold transition-all duration-200 shadow-[0_0_20px_rgba(0,237,100,0.2)]">
-              Start Mock Interview
-            </button>
+            <SignInButton>
+              <button className="w-full sm:w-auto bg-mongodb-neon hover:bg-[#00c753] text-mongodb-bg px-8 py-3.5 rounded text-lg font-semibold transition-all duration-200 shadow-[0_0_20px_rgba(0,237,100,0.2)]">
+                Try Mock Interview
+              </button>
+            </SignInButton>
             <button className="w-full sm:w-auto group flex items-center justify-center gap-2 bg-transparent text-white border border-white/20 hover:border-white/50 px-8 py-3.5 rounded text-lg font-medium transition-all duration-200">
               Documentation
               <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
@@ -89,7 +102,7 @@ export default function LandingPage() {
           className="mt-24 max-w-5xl mx-auto"
         >
           {/* Mock Browser/Dashboard Window */}
-          <div className="bg-mongodb-card border border-[#113247] shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-[24px] overflow-hidden relative">
+          <div className="bg-mongodb-card border border-[#113247] shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-3xl overflow-hidden relative">
             {/* Window Header */}
             <div className="bg-mongodb-bg border-b border-[#113247] px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -104,7 +117,7 @@ export default function LandingPage() {
             </div>
 
             {/* Window Body */}
-            <div className="flex flex-col md:flex-row h-[400px]">
+            <div className="flex flex-col md:flex-row h-100">
 
               {/* Left Column: Live Transcript */}
               <div className="w-full md:w-1/2 p-8 border-b md:border-b-0 md:border-r border-[#113247] bg-mongodb-bg/30 flex flex-col justify-end space-y-6 relative overflow-hidden">
@@ -189,7 +202,7 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Feature 1 */}
-            <div className="bg-mongodb-card border border-[#113247] rounded-[24px] p-8 hover:border-mongodb-neon/30 transition-colors group">
+            <div className="bg-mongodb-card border border-[#113247] rounded-3xl p-8 hover:border-mongodb-neon/30 transition-colors group">
               <div className="w-12 h-12 rounded-lg bg-mongodb-bg flex items-center justify-center border border-[#113247] mb-6 group-hover:scale-110 transition-transform">
                 <Code2 className="text-mongodb-neon" />
               </div>
@@ -200,7 +213,7 @@ export default function LandingPage() {
             </div>
 
             {/* Feature 2 */}
-            <div className="bg-mongodb-card border border-[#113247] rounded-[24px] p-8 hover:border-mongodb-neon/30 transition-colors group">
+            <div className="bg-mongodb-card border border-[#113247] rounded-3xl p-8 hover:border-mongodb-neon/30 transition-colors group">
               <div className="w-12 h-12 rounded-lg bg-mongodb-bg flex items-center justify-center border border-[#113247] mb-6 group-hover:scale-110 transition-transform">
                 <Activity className="text-mongodb-neon" />
               </div>
@@ -211,7 +224,7 @@ export default function LandingPage() {
             </div>
 
             {/* Feature 3 */}
-            <div className="bg-mongodb-card border border-[#113247] rounded-[24px] p-8 hover:border-mongodb-neon/30 transition-colors group">
+            <div className="bg-mongodb-card border border-[#113247] rounded-3xl p-8 hover:border-mongodb-neon/30 transition-colors group">
               <div className="w-12 h-12 rounded-lg bg-mongodb-bg flex items-center justify-center border border-[#113247] mb-6 group-hover:scale-110 transition-transform">
                 <BarChart className="text-mongodb-neon" />
               </div>

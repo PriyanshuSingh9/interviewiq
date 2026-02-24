@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Mic,
   MicOff,
@@ -8,17 +8,13 @@ import {
   VideoOff,
   PhoneOff,
   MessageSquare,
-  Settings,
   ChevronRight,
   BrainCircuit,
   Clock,
   MonitorUp,
   Activity,
   X,
-  Send,
   Star,
-  AlertCircle,
-  CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -69,24 +65,6 @@ function useTimer() {
   return `${mm}:${ss}`;
 }
 
-function StarRating({ value, onChange }) {
-  return (
-    <div className="flex gap-1">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          onClick={() => onChange(n)}
-          className="transition-transform hover:scale-110"
-        >
-          <Star
-            size={14}
-            className={n <= value ? "text-mongodb-neon fill-mongodb-neon" : "text-[#113247]"}
-          />
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function CategoryBadge({ cat }) {
   const map = {
@@ -115,12 +93,101 @@ export default function InterviewRoom({ params }) {
   const [questions, setQuestions] = useState(QUESTIONS_BANK);
   const [transcript] = useState(TRANSCRIPT);
   const [candidateSpeaking, setCandidateSpeaking] = useState(false);
+  const [aiSpeaking, setAiSpeaking] = useState(false); // will be driven by TTS later
   const transcriptRef = useRef(null);
 
-  // Simulate candidate speaking toggling
+  // ── Candidate webcam + mic ──────────────────────────
+  const videoRef = useRef(null);      // <video> element
+  const streamRef = useRef(null);     // MediaStream object
+  const audioCtxRef = useRef(null);   // AudioContext for analysis
+  const analyserRef = useRef(null);   // AnalyserNode
+  const rafIdRef = useRef(null);      // requestAnimationFrame ID
+
+  // Request camera + mic once on mount
   useEffect(() => {
-    const id = setInterval(() => setCandidateSpeaking((v) => !v), 4000);
-    return () => clearInterval(id);
+    async function startMedia() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+
+        // ── Set up audio analysis ──────────────────────
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioCtxRef.current = audioCtx;
+
+        const source = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;          // smaller = faster, less detail (good for detection)
+        analyser.smoothingTimeConstant = 0.5;  // smooth out spikes
+        source.connect(analyser);
+        // NOTE: we do NOT connect analyser to audioCtx.destination
+        // — that would play your own mic back to you (echo!)
+        analyserRef.current = analyser;
+
+        // Start the audio level polling loop
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        function checkAudioLevel() {
+          analyser.getByteFrequencyData(dataArray);
+
+          // Calculate average volume across all frequency bins
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            sum += dataArray[i];
+          }
+          const average = sum / dataArray.length;
+
+          // Threshold: if average > 15, the candidate is speaking
+          // (typical silence is 0-5, speech is 20-80+)
+          setCandidateSpeaking(average > 15);
+
+          rafIdRef.current = requestAnimationFrame(checkAudioLevel);
+        }
+        checkAudioLevel();
+
+      } catch (err) {
+        console.error("Camera/mic access denied:", err);
+      }
+    }
+    startMedia();
+
+    // Cleanup: stop all tracks + close audio context
+    return () => {
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+      if (audioCtxRef.current) audioCtxRef.current.close();
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, []);
+
+  // Toggle the real mic track on/off
+  const toggleMic = useCallback(() => {
+    setMicOn((prev) => {
+      const next = !prev;
+      if (streamRef.current) {
+        streamRef.current.getAudioTracks().forEach((t) => (t.enabled = next));
+      }
+      // When muted, immediately stop the speaking indicator
+      if (!next) setCandidateSpeaking(false);
+      return next;
+    });
+  }, []);
+
+  // Toggle the real camera track on/off
+  const toggleCam = useCallback(() => {
+    setCamOn((prev) => {
+      const next = !prev;
+      if (streamRef.current) {
+        streamRef.current.getVideoTracks().forEach((t) => (t.enabled = next));
+      }
+      return next;
+    });
   }, []);
 
   // Auto-scroll transcript
@@ -174,72 +241,83 @@ export default function InterviewRoom({ params }) {
           {/* Video area – PiP layout */}
           <div className="flex-1 relative p-4">
 
-            {/* Interviewer (You) – main full tile */}
-            <div className="absolute inset-4 bg-mongodb-card rounded-2xl overflow-hidden border border-white/5">
+            {/* AI Interviewer – main full tile */}
+            <div className={`absolute inset-4 bg-mongodb-card rounded-2xl overflow-hidden border-2 transition-all duration-500 ${aiSpeaking ? "border-mongodb-neon/60 shadow-[0_0_25px_rgba(0,237,100,0.15)]" : "border-white/5"}`}>
               <div className="absolute inset-0 bg-gradient-to-br from-[#001E2B] via-[#061621] to-[#0a1f2e] flex items-center justify-center">
-                {camOn ? (
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#113247] to-[#001E2B] flex items-center justify-center text-3xl font-bold font-serif text-white border-2 border-white/10">
-                    IQ
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#113247] to-[#001E2B] flex items-center justify-center border-2 border-mongodb-neon/20">
+                    <BrainCircuit size={40} className="text-mongodb-neon" />
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-2 text-[#8899A6]">
-                    <VideoOff size={36} />
-                    <span className="text-sm">Camera Off</span>
-                  </div>
-                )}
+                  <span className="text-sm font-semibold text-white/60">AI Interviewer</span>
+                </div>
               </div>
 
-              {/* You badge */}
+              {/* Speaking indicator for AI */}
+              {aiSpeaking && (
+                <div className="absolute top-4 left-4 flex items-center gap-1.5 bg-mongodb-bg/80 backdrop-blur-sm px-2.5 py-1 rounded-full border border-mongodb-neon/30">
+                  <Activity size={11} className="text-mongodb-neon animate-pulse" />
+                  <span className="text-[10px] font-semibold text-mongodb-neon uppercase tracking-wider">Speaking</span>
+                </div>
+              )}
+
+              {/* Badge */}
               <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/70 to-transparent" />
               <div className="absolute bottom-4 left-4 flex items-center gap-2">
-                <span className="text-sm font-semibold text-white">You</span>
-                <span className="text-[10px] bg-mongodb-neon/20 text-mongodb-neon border border-mongodb-neon/30 px-2 py-0.5 rounded-full font-semibold">Interviewer</span>
+                <span className="text-sm font-semibold text-white">InterviewIQ</span>
+                <span className="text-[10px] bg-mongodb-neon/20 text-mongodb-neon border border-mongodb-neon/30 px-2 py-0.5 rounded-full font-semibold">AI Interviewer</span>
               </div>
 
-              {/* Mic muted indicator */}
-              {!micOn && (
-                <div className="absolute top-4 right-4 bg-red-500/90 p-1.5 rounded-full">
-                  <MicOff size={12} />
-                </div>
-              )}
-            </div>
-
-            {/* Candidate – small PiP overlay at bottom-right */}
-            <div className={`absolute bottom-8 right-8 w-56 h-36 bg-mongodb-card rounded-xl overflow-hidden border-2 transition-all duration-300 z-10 shadow-[0_8px_30px_rgba(0,0,0,0.6)] ${candidateSpeaking ? "border-mongodb-neon shadow-[0_0_20px_rgba(0,237,100,0.25)]" : "border-white/10"}`}>
-              <div className="absolute inset-0 bg-gradient-to-br from-[#0d3d2b] via-[#001E2B] to-[#061621] flex items-center justify-center">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-mongodb-neon/40 to-[#00b04a]/20 flex items-center justify-center text-lg font-bold font-serif text-white border-2 border-mongodb-neon/30">
-                  {CANDIDATE.avatar}
-                </div>
-              </div>
-
-              {/* Speaking indicator */}
-              {candidateSpeaking && (
-                <div className="absolute top-2 left-2 flex items-center gap-1 bg-mongodb-bg/80 backdrop-blur-sm px-2 py-0.5 rounded-full border border-mongodb-neon/30">
-                  <Activity size={9} className="text-mongodb-neon animate-pulse" />
-                  <span className="text-[8px] font-semibold text-mongodb-neon uppercase tracking-wider">Speaking</span>
-                </div>
-              )}
-
-              {/* Name badge */}
-              <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-black/80 to-transparent" />
-              <div className="absolute bottom-1.5 left-2 flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-white">{CANDIDATE.name}</span>
-              </div>
-
-              {/* Audio waveform bars if speaking */}
-              {candidateSpeaking && (
-                <div className="absolute bottom-2 right-2 flex items-end gap-0.5 h-4">
+              {/* Waveform bars when AI is speaking */}
+              {aiSpeaking && (
+                <div className="absolute bottom-5 right-5 flex items-end gap-0.5 h-5">
                   {[3, 6, 4, 8, 5, 3, 7].map((h, i) => (
                     <div
                       key={i}
-                      className="w-0.5 bg-mongodb-neon rounded-full animate-waveform"
+                      className="w-1 bg-mongodb-neon rounded-full animate-waveform"
                       style={{
-                        height: `${h * 1.5}px`,
+                        height: `${h * 2}px`,
                         animationDelay: `${i * 80}ms`,
                         animationDuration: "0.7s",
                       }}
                     />
                   ))}
+                </div>
+              )}
+            </div>
+
+            {/* Candidate (You) – small PiP overlay with LIVE video */}
+            <div className={`absolute bottom-8 right-8 w-56 h-40 bg-mongodb-card rounded-xl overflow-hidden border-2 transition-all duration-500 z-10 shadow-[0_8px_30px_rgba(0,0,0,0.6)] ${!candidateSpeaking ? "border-white/10" : "border-mongodb-neon/60 shadow-[0_0_20px_rgba(0,237,100,0.2)]"}`}>
+              {/* Live video feed – ALWAYS mounted so the ref persists */}
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${camOn ? "opacity-100" : "opacity-0"}`}
+                style={{ transform: "scaleX(-1)" }}
+              />
+
+              {/* Camera-off overlay (shown ON TOP of the hidden video) */}
+              {!camOn && (
+                <div className="absolute inset-0 bg-gradient-to-br from-[#0d3d2b] via-[#001E2B] to-[#061621] flex items-center justify-center z-[1]">
+                  <div className="flex flex-col items-center gap-2 text-[#8899A6]">
+                    <VideoOff size={24} />
+                    <span className="text-xs">Camera Off</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Name badge */}
+              <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-black/80 to-transparent z-[2]" />
+              <div className="absolute bottom-1.5 left-2 flex items-center gap-1.5 z-[2]">
+                <span className="text-xs font-semibold text-white">You</span>
+                <span className="text-[8px] bg-white/10 text-white/60 px-1.5 py-0.5 rounded-full">Candidate</span>
+              </div>
+
+              {/* Mic muted indicator */}
+              {!micOn && (
+                <div className="absolute top-2 right-2 bg-red-500/90 p-1 rounded-full z-[2]">
+                  <MicOff size={10} />
                 </div>
               )}
             </div>
@@ -252,7 +330,7 @@ export default function InterviewRoom({ params }) {
             {/* Left controls */}
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setMicOn((v) => !v)}
+                onClick={toggleMic}
                 className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-200 group ${micOn ? "bg-white/5 hover:bg-white/10 text-white" : "bg-red-500/20 hover:bg-red-500/30 text-red-400"}`}
               >
                 {micOn ? <Mic size={18} /> : <MicOff size={18} />}
@@ -260,7 +338,7 @@ export default function InterviewRoom({ params }) {
               </button>
 
               <button
-                onClick={() => setCamOn((v) => !v)}
+                onClick={toggleCam}
                 className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-200 ${camOn ? "bg-white/5 hover:bg-white/10 text-white" : "bg-red-500/20 hover:bg-red-500/30 text-red-400"}`}
               >
                 {camOn ? <Video size={18} /> : <VideoOff size={18} />}

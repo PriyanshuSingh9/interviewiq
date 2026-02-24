@@ -18,7 +18,7 @@ The solution should demonstrate agentic behavior across the interview lifecycle:
 
 ## Team: Code Red
 **Members:**
-- Rudra Agarwal (Team Lead)
+- Rudra Agrawal (Team Lead)
 - Priyanshu Singh
 - Arpit Gupta
 - Deepanshu Khatri

@@ -66,7 +66,7 @@ InterviewIQ demonstrates sophisticated agentic behavior across the entire interv
 - **Styling**: [Tailwind CSS 4](https://tailwindcss.com/) with a MongoDB-inspired design system
 - **Authentication**: [Clerk](https://clerk.com/) (GitHub & Google OAuth)
 - **Database**: [Neon](https://neon.tech/) (Serverless PostgreSQL)
-- **ORM**: [Prisma](https://www.prisma.io/)
+- **ORM**: [Drizzle ORM](https://orm.drizzle.team/)
 - **Animations**: [Framer Motion](https://www.framer.com/motion/)
 - **Icons**: [Lucide React](https://lucide.dev/)
 
@@ -115,7 +115,7 @@ Open [http://localhost:3000](http://localhost:3000) to start your first mock int
 interviewiq/
 ├── app/               # Next.js App Router (Dashboard, Interview, Reports)
 ├── components/        # Reusable UI components (Navbar, Bento-grid)
-├── prisma/            # Schema and database migrations
+├── drizzle/           # Database migrations
 ├── public/            # Static assets and screenshots
 ├── lib/               # Utility functions and database clients
 └── _prd/             # Detailed architectural documentation

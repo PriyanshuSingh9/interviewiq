@@ -1,25 +1,32 @@
-import prisma from "@/lib/prisma";
+'use server'
+
+import { db } from '@/lib/db';
+import { users } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 
 export const saveUser = async (user) => {
     try {
-        const dbUser = await prisma.user.upsert({
-            // check if user exists
-            where: {
-                clerkId: user.id
-            },
-            update: {
-                name: `${user.firstName} ${user.lastName}`.trim()
-            },
-            // if user does not exist, create it
-            create: {
+        const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown';
+
+        const [dbUser] = await db
+            .insert(users)
+            .values({
                 clerkId: user.id,
-                name: `${user.firstName} ${user.lastName}`.trim(),
+                name: name,
                 email: user.email,
-            }
-        })
-        return dbUser
+            })
+            .onConflictDoUpdate({
+                target: users.clerkId,
+                set: {
+                    name: name,
+                    email: user.email,
+                },
+            })
+            .returning();
+
+        return dbUser;
     } catch (error) {
-        console.error("Failed to save user to database:", error);
-        throw new Error("Could not sync user to database");
+        console.error("Failed to save user:", error.message, "Input:", JSON.stringify(user));
+        throw new Error(`Could not sync user: ${error.message}`);
     }
 }

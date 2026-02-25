@@ -10,12 +10,12 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.38.2",
-    "@prisma/client": "^7.4.1",
+    "@neondatabase/serverless": "^1.0.2",
     "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.1",
     "framer-motion": "^12.34.3",
     "lucide-react": "^0.575.0",
     "next": "16.1.6",
-    "prisma": "^7.4.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.71.2",
@@ -26,6 +26,7 @@
     "@types/node": "25.3.0",
     "@types/react": "19.2.14",
     "babel-plugin-react-compiler": "1.0.0",
+    "drizzle-kit": "^0.31.9",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4"

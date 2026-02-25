@@ -1,11 +1,14 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { useForm } from 'react-hook-form';
+import { useUser } from '@clerk/nextjs';
+import { saveUser } from '@/app/actions/saveUser';
 import { Paperclip, Link as LinkIcon, Clipboard, Check, PlayCircle, Zap, Clock, Lock, List } from 'lucide-react';
 
 export default function Dashboard() {
+    const { user, isLoaded } = useUser();
     const { register, handleSubmit, watch, reset: resetForm, formState: { errors } } = useForm({
         defaultValues: {
             role: 'Senior Backend Engineer',
@@ -14,6 +17,18 @@ export default function Dashboard() {
         }
     });
     const [reset, setReset] = useState(false);
+
+    // Sync Clerk user to Neon DB on first load
+    useEffect(() => {
+        if (isLoaded && user) {
+            saveUser({
+                id: user.id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.primaryEmailAddress?.emailAddress,
+            });
+        }
+    }, [isLoaded, user]);
 
     const resume = watch('resume');
     const githubUrl = watch('githubUrl');

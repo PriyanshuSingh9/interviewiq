@@ -79,7 +79,7 @@ Upload form
 | Frontend | Next.js 16 App Router + TailwindCSS | App Router for file-based routing + API routes |
 | Voice UI | Web Audio API + MediaRecorder | Mic capture, PCM16 encoding, audio playback |
 | Bridge Server | Node.js + Express + `ws` | Raw WebSocket (no Socket.io — we're relaying binary audio) |
-| Persistent Storage | PostgreSQL + Prisma | Interview history, final reports
+| Persistent Storage | PostgreSQL + Drizzle ORM | Interview history, final reports
 | Cloud LLM (eval) | OpenAI gpt-4o-mini- | pre interview prep |
 | Cloud LLM (voice) | OpenAI gpt-4o-mini-realtime | Live interview |
 | Cloud LLM (eval) | OpenAI gpt-4o-mini chat | Interruption quality eval (~300ms) |

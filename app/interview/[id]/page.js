@@ -94,6 +94,7 @@ export default function InterviewRoom({ params }) {
   const [candidateSpeaking, setCandidateSpeaking] = useState(false);
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [geminiStatus, setGeminiStatus] = useState("idle"); // idle | connecting | connected | live | error | disconnected
+  const [mediaStream, setMediaStream] = useState(null);  // triggers Gemini connection reliably
   const transcriptRef = useRef(null);
   const geminiRef = useRef(null);     // GeminiLiveSession instance
 
@@ -113,6 +114,7 @@ export default function InterviewRoom({ params }) {
           audio: true,
         });
         streamRef.current = stream;
+        setMediaStream(stream);  // state change → triggers Gemini useEffect
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
@@ -138,14 +140,15 @@ export default function InterviewRoom({ params }) {
 
           // Calculate average volume across all frequency bins
           let sum = 0;
+          let max = 0;
           for (let i = 0; i < dataArray.length; i++) {
             sum += dataArray[i];
+            if (dataArray[i] > max) max = dataArray[i];
           }
           const average = sum / dataArray.length;
 
-          // Threshold: if average > 15, the candidate is speaking
-          // (typical silence is 0-5, speech is 20-80+)
-          setCandidateSpeaking(average > 15);
+          // Tweak thresholds so the indicator is less sensitive to background noise
+          setCandidateSpeaking(average > 25 || max > 70);        // (typical silence is 0-5, speech is 20-80+)
 
           rafIdRef.current = requestAnimationFrame(checkAudioLevel);
         }
@@ -163,7 +166,9 @@ export default function InterviewRoom({ params }) {
       if (audioCtxRef.current) audioCtxRef.current.close();
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
       }
+      setMediaStream(null);
     };
   }, []);
 
@@ -192,23 +197,32 @@ export default function InterviewRoom({ params }) {
   }, []);
 
   // ── Connect Gemini Live when stream is ready ────────
+  // Uses mediaStream STATE (not ref) so React reliably re-runs this effect
   useEffect(() => {
-    if (!streamRef.current || geminiRef.current) return;
+    if (!mediaStream) return;
+
+    // Reset transcript for new session
+    setTranscript([]);
+    setGeminiStatus("idle");
 
     const session = new GeminiLiveSession({
-      stream: streamRef.current,
+      stream: mediaStream,
       onTranscript: (role, text) => {
         setTranscript((prev) => {
-          // If the last entry is the same role, append text to it
-          // (transcription arrives in chunks)
           const last = prev[prev.length - 1];
-          if (last && last.role === role) {
-            return [
-              ...prev.slice(0, -1),
-              { ...last, text: last.text + text },
-            ];
+
+          // For AI, text arrives in small stream chunks, so we append to the same bubble
+          if (role === "ai") {
+            if (last && last.role === "ai") {
+              return [
+                ...prev.slice(0, -1),
+                { ...last, text: last.text + text },
+              ];
+            }
           }
-          // Otherwise, start a new entry
+
+          // For Candidate, text arrives as a complete finalized/processed phrase.
+          // We always create a new bubble for each complete phrase.
           return [...prev, { role, text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
         });
       },
@@ -224,9 +238,7 @@ export default function InterviewRoom({ params }) {
       session.disconnect();
       geminiRef.current = null;
     };
-    // We intentionally only run this when the stream becomes available
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [streamRef.current]);
+  }, [mediaStream]);
 
   // Auto-scroll transcript
   useEffect(() => {
@@ -258,9 +270,9 @@ export default function InterviewRoom({ params }) {
         <div className="flex items-center gap-3">
           {/* Gemini connection status */}
           <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border ${geminiStatus === "live" ? "bg-green-500/10 border-green-500/30" :
-              geminiStatus === "connecting" || geminiStatus === "connected" ? "bg-yellow-500/10 border-yellow-500/30" :
-                geminiStatus === "error" ? "bg-red-500/10 border-red-500/30" :
-                  "bg-white/5 border-white/10"
+            geminiStatus === "connecting" || geminiStatus === "connected" ? "bg-yellow-500/10 border-yellow-500/30" :
+              geminiStatus === "error" ? "bg-red-500/10 border-red-500/30" :
+                "bg-white/5 border-white/10"
             }`}>
             {geminiStatus === "live" ? (
               <><Wifi size={12} className="text-green-400" /><span className="text-xs font-semibold text-green-400 uppercase tracking-wider">AI Live</span></>
@@ -478,15 +490,11 @@ export default function InterviewRoom({ params }) {
                     </div>
                   ))}
 
-                  {/* Live speaking indicator */}
-                  {(candidateSpeaking || aiSpeaking) && (
+                  {/* Live speaking indicator (AI only) */}
+                  {aiSpeaking && (
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        {aiSpeaking ? (
-                          <span className="text-[10px] font-bold text-mongodb-neon uppercase bg-mongodb-neon/10 px-2 py-0.5 rounded border border-mongodb-neon/20">AI</span>
-                        ) : (
-                          <span className="text-[10px] font-bold text-[#8899A6] uppercase bg-[#113247] px-2 py-0.5 rounded">You</span>
-                        )}
+                        <span className="text-[10px] font-bold text-mongodb-neon uppercase bg-mongodb-neon/10 px-2 py-0.5 rounded border border-mongodb-neon/20">AI</span>
                         <span className="text-[10px] text-mongodb-neon animate-pulse">● Speaking</span>
                       </div>
                       <div className="flex gap-1">

@@ -140,14 +140,15 @@ export default function InterviewRoom({ params }) {
 
           // Calculate average volume across all frequency bins
           let sum = 0;
+          let max = 0;
           for (let i = 0; i < dataArray.length; i++) {
             sum += dataArray[i];
+            if (dataArray[i] > max) max = dataArray[i];
           }
           const average = sum / dataArray.length;
 
-          // Threshold: if average > 15, the candidate is speaking
-          // (typical silence is 0-5, speech is 20-80+)
-          setCandidateSpeaking(average > 15);
+          // Tweak thresholds so the indicator is less sensitive to background noise
+          setCandidateSpeaking(average > 25 || max > 70);        // (typical silence is 0-5, speech is 20-80+)
 
           rafIdRef.current = requestAnimationFrame(checkAudioLevel);
         }
@@ -208,16 +209,20 @@ export default function InterviewRoom({ params }) {
       stream: mediaStream,
       onTranscript: (role, text) => {
         setTranscript((prev) => {
-          // If the last entry is the same role, append text to it
-          // (transcription arrives in chunks)
           const last = prev[prev.length - 1];
-          if (last && last.role === role) {
-            return [
-              ...prev.slice(0, -1),
-              { ...last, text: last.text + text },
-            ];
+
+          // For AI, text arrives in small stream chunks, so we append to the same bubble
+          if (role === "ai") {
+            if (last && last.role === "ai") {
+              return [
+                ...prev.slice(0, -1),
+                { ...last, text: last.text + text },
+              ];
+            }
           }
-          // Otherwise, start a new entry
+
+          // For Candidate, text arrives as a complete finalized/processed phrase.
+          // We always create a new bubble for each complete phrase.
           return [...prev, { role, text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
         });
       },
@@ -485,15 +490,11 @@ export default function InterviewRoom({ params }) {
                     </div>
                   ))}
 
-                  {/* Live speaking indicator */}
-                  {(candidateSpeaking || aiSpeaking) && (
+                  {/* Live speaking indicator (AI only) */}
+                  {aiSpeaking && (
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        {aiSpeaking ? (
-                          <span className="text-[10px] font-bold text-mongodb-neon uppercase bg-mongodb-neon/10 px-2 py-0.5 rounded border border-mongodb-neon/20">AI</span>
-                        ) : (
-                          <span className="text-[10px] font-bold text-[#8899A6] uppercase bg-[#113247] px-2 py-0.5 rounded">You</span>
-                        )}
+                        <span className="text-[10px] font-bold text-mongodb-neon uppercase bg-mongodb-neon/10 px-2 py-0.5 rounded border border-mongodb-neon/20">AI</span>
                         <span className="text-[10px] text-mongodb-neon animate-pulse">● Speaking</span>
                       </div>
                       <div className="flex gap-1">

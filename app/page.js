@@ -49,7 +49,19 @@ export default function LandingPage() {
             </SignUpButton>
           </SignedOut>
           <SignedIn>
-            <UserButton />
+            <div className="inline-flex items-center justify-center p-[2px] rounded-full border-2 border-[#113247] hover:border-mongodb-neon transition-all duration-300 shadow-[0_0_15px_rgba(0,237,100,0.1)] hover:shadow-[0_0_20px_rgba(0,237,100,0.3)]">
+              <UserButton
+                appearance={{
+                  layout: {
+                    shimmer: true
+                  },
+                  variables: {
+                    // This is the specific variable Clerk uses to size the avatar box globally
+                    spacingUnit: "1.5rem"
+                  }
+                }}
+              />
+            </div>
           </SignedIn>
         </div>
       </nav>

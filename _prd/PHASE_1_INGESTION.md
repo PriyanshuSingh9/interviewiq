@@ -50,15 +50,12 @@ export async function parseResume(fileBuffer) {
 5. Root-level config files that reveal architecture (pick up to 3):
    - `docker-compose.yml`, `Dockerfile`, `.github/workflows/*.yml`, `nginx.conf`
 
-**Repo selection:** Take the top 3 repos sorted by: `(stars × 2) + (days_since_last_push < 180 ? 10 : 0)`. This prioritizes active and notable repos over stale ones.
-
-**Token budget:** Each repo skeleton must fit within 1500 tokens after assembly. Truncate README first, then dependency file, if over budget.
+**Repo selection:** Extract GitHub repository URLs directly mentioned in the parsed Resume text. Fetch only those specific repositories (up to a limit of 3) to ensure questions focus on projects the candidate explicitly claims.
 
 **Edge cases:**
+- Invalid/dead URL in resume → skip silently, note in profile
 - Private repos → skip silently, note in profile
 - Empty repos (no README, no files) → skip, note in profile
-- Monorepos → fetch root file tree only, note "monorepo detected"
-- Fork → deprioritize unless it has original commits (check `fork: true` in API response)
 - Rate limit (403/429) → return whatever was fetched so far, add note "GitHub rate limited — partial data"
 
 ```js

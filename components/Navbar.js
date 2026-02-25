@@ -25,8 +25,14 @@ export const Navbar = () => {
                     <Link href="/history" className={`${active === '/history' ? 'border-b-2 text-mongodb-neon' : 'text-gray-400 hover:text-gray-100'} text-sm font-medium pb-1`}>History</Link>
                 </div>
             </div>
-            <div>
-                <UserButton />
+            <div className="flex items-center justify-center p-[2px] rounded-full border-2 border-[#113247] hover:border-mongodb-neon transition-all duration-300">
+                <UserButton
+                    appearance={{
+                        variables: {
+                            spacingUnit: "1.3rem"
+                        }
+                    }}
+                />
             </div>
         </nav>
     )

@@ -236,31 +236,44 @@ export default function Dashboard() {
             </main>
 
             {/* ── Floating Action Bar (Asymmetric Layout Footer Style) ── */}
-            <div className="fixed bottom-0 left-0 w-full px-8 py-5 bg-gradient-to-t from-mongodb-bg via-mongodb-bg/95 to-transparent backdrop-blur-sm z-40">
-                <div className="max-w-7xl mx-auto flex items-end justify-between gap-6">
+            <div className="fixed bottom-0 left-0 right-0 p-3 bg-mongodb-bg/95 backdrop-blur-lg border-t border-gray-800 z-40">
+                <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
 
                     {/* Status Readout */}
-                    <div className="hidden md:flex flex-col gap-1 border-l-2 border-gray-800 pl-4 pb-1">
-                        <span className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Network Status</span>
+                    <div className="hidden md:flex flex-col border-l-2 border-gray-800 pl-4">
+                        <span className="text-gray-500 text-[9px] font-bold uppercase tracking-widest mb-0.5">Network Status</span>
                         <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-gray-700 animate-pulse" />
-                            <span className="text-gray-500 font-mono text-xs">Waiting For Inputs</span>
+                            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${reset ? 'bg-mongodb-neon shadow-[0_0_6px_rgba(0,237,100,0.5)]' : 'bg-gray-700'}`} />
+                            <span className={`${reset ? 'text-mongodb-neon' : 'text-gray-500'} font-mono text-[11px] transition-colors`}>
+                                {reset ? 'System Ready' : 'Waiting For Inputs'}
+                            </span>
                         </div>
                     </div>
 
                     {/* CTA Button */}
                     <button
-                        disabled
-                        className="w-full md:w-[55%] lg:w-[45%] bg-mongodb-card border border-gray-800 text-gray-500 font-semibold py-4 px-6 rounded-2xl shadow-2xl cursor-not-allowed flex items-center gap-4 hover:border-gray-700 transition-colors"
+                        disabled={!reset}
+                        onClick={() => {
+                            if (reset) {
+                                console.log('Starting interview...');
+                                // Add interview route push or handler here
+                            }
+                        }}
+                        className={`w-full md:w-[55%] lg:w-[40%] font-semibold py-2.5 px-5 rounded-xl shadow-xl flex items-center gap-3 transition-all duration-300 
+                            ${reset
+                                ? 'bg-mongodb-neon text-[#001D29] cursor-pointer hover:bg-[#68d167] hover:scale-[1.02] active:scale-[0.98]'
+                                : 'bg-mongodb-card border border-gray-800 text-gray-500 cursor-not-allowed hover:border-gray-700'
+                            }`}
                     >
                         <div className="flex-1 text-left pl-1">
-                            <span className="text-lg block">Start Interview</span>
-                            <span className="block text-[11px] font-normal text-gray-600 uppercase tracking-widest font-mono mt-0.5">
-                                Requires Prepared Plan
+                            <span className="text-base block leading-tight">Start Interview</span>
+                            <span className={`block text-[10px] font-normal uppercase tracking-widest font-mono transition-colors mt-0.5 ${reset ? 'text-[#001D29]/70' : 'text-gray-600'}`}>
+                                {reset ? 'Systems Initialized' : 'Requires Prepared Plan'}
                             </span>
                         </div>
-                        <div className="bg-gray-900 border border-gray-800 p-3 rounded-xl text-gray-600 flex items-center justify-center">
-                            <PlayCircle size={24} />
+                        <div className={`p-2 rounded-lg flex items-center justify-center transition-colors ${reset ? 'bg-[#001D29]/10 text-[#001D29]' : 'bg-gray-900 border border-gray-800 text-gray-600'
+                            }`}>
+                            <PlayCircle size={20} className={reset ? 'fill-transparent stroke-[#001D29] stroke-2' : ''} />
                         </div>
                     </button>
                 </div>

@@ -1,65 +1,49 @@
 'use client'
 
 import React, { useState } from 'react';
-import { UserButton } from '@clerk/nextjs';
+import { Navbar } from '@/components/Navbar';
+import { useForm } from 'react-hook-form';
 import { Paperclip, Link as LinkIcon, Clipboard, Check, PlayCircle, Zap, Clock, Lock, List } from 'lucide-react';
-import Link from 'next/link';
 
 export default function Dashboard() {
-    const [role, setRole] = useState('Senior Backend Engineer');
+    const { register, handleSubmit, watch, reset: resetForm, formState: { errors } } = useForm({
+        defaultValues: {
+            role: 'Senior Backend Engineer',
+            githubUrl: '',
+            jobDescription: ''
+        }
+    });
+    const [reset, setReset] = useState(false);
+
+    const githubUrl = watch('githubUrl');
+
+    const onSubmit = (data) => {
+        setReset(true);
+        console.log("Preparing interview with:", data);
+        // Add form submission logic here
+    };
 
     return (
         <div className="min-h-screen bg-mongodb-bg text-white font-sans selection:bg-mongodb-neon selection:text-mongodb-bg flex flex-col relative pb-36">
-
             {/* ── Navbar (Bento Layout Style) ── */}
-            <nav className="flex items-center justify-between px-10 py-4 border-b border-gray-800 bg-mongodb-bg/80 backdrop-blur-md sticky top-0 z-50">
-                <div className="flex items-center gap-8">
-                    <div className="flex items-center gap-3 text-mongodb-neon">
-                        <div className="w-8 h-8 flex items-center justify-center bg-mongodb-neon/10 rounded-lg">
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                                    d="M8 9l3 3-3 3m5 0h3M4 18h16a2 2 0 002-2V8a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <h2 className="text-gray-100 text-xl font-bold tracking-tight">InterviewIQ</h2>
-                    </div>
-                    <div className="hidden md:flex items-center gap-6 ml-4">
-                        <Link href="/dashboard" className="text-mongodb-neon text-sm font-medium border-b-2 border-mongodb-neon pb-1">Dashboard</Link>
-                        <Link href="/reports" className="text-gray-400 hover:text-gray-100 text-sm font-medium transition-colors">Reports</Link>
-                        <Link href="/history" className="text-gray-400 hover:text-gray-100 text-sm font-medium transition-colors">History</Link>
-                    </div>
-                </div>
-                <div>
-                    <UserButton afterSignOutUrl="/" />
-                </div>
-            </nav>
+            <Navbar />
 
             {/* ── Main Content — Bento Grid ── */}
             <main className="flex-1 max-w-7xl mx-auto w-full p-8 space-y-8 bg-grid-pattern relative">
 
                 {/* Page Header */}
                 <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2 text-mongodb-neon">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        <span className="text-xs font-bold uppercase tracking-widest">System Online</span>
-                    </div>
                     <h1 className="text-4xl font-bold text-gray-100 tracking-tight">
                         Command Center <span className="text-mongodb-neon font-light">v3.0</span>
                     </h1>
-                    <p className="text-gray-400 max-w-2xl text-lg mt-1">
-                        Initialize your preparation engine. Configure target parameters and evaluate technical readiness.
-                    </p>
                 </div>
 
                 {/* Bento Grid */}
                 <div className="grid grid-cols-12 gap-6">
 
                     {/* ── Card 1: Your Materials (Large Left) ── */}
-                    <div className="col-span-12 lg:col-span-7 bg-mongodb-card border border-gray-800 rounded-3xl p-8 flex flex-col justify-between min-h-[500px] shadow-2xl relative overflow-hidden hover:border-gray-700 transition-colors duration-300">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-mongodb-neon/30 to-transparent" />
+                    <form onSubmit={handleSubmit(onSubmit)} className="col-span-12 lg:col-span-7 bg-mongodb-card border border-gray-800 rounded-3xl p-8 flex flex-col justify-between min-h-[500px] shadow-2xl relative overflow-hidden hover:border-gray-700 transition-colors duration-300">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-line-to-r from-transparent via-mongodb-neon/30 to-transparent" />
 
                         <div className="space-y-6">
                             {/* Card Header */}
@@ -71,9 +55,20 @@ export default function Dashboard() {
                                     </svg>
                                     <h3 className="text-2xl font-bold text-gray-100">Your Materials</h3>
                                 </div>
-                                <span className="text-[10px] font-mono text-mongodb-neon/50 border border-mongodb-neon/20 px-2 py-1 rounded bg-mongodb-neon/5 uppercase tracking-widest">
-                                    Config-Active
-                                </span>
+                                {reset ?
+                                    <span className="text-[10px] font-mono text-mongodb-neon/50 border border-mongodb-neon/20 px-2 py-1 rounded bg-mongodb-neon/5 uppercase tracking-widest transition-colors hover:bg-mongodb-neon/10">
+                                        <button type="button" onClick={() => {
+                                            resetForm();
+                                            setReset(false);
+                                        }}>
+                                            Reset
+                                        </button>
+                                    </span>
+                                    :
+                                    <span className="text-[10px] font-mono text-mongodb-neon/50 border border-mongodb-neon/20 px-2 py-1 rounded bg-mongodb-neon/5 uppercase tracking-widest">
+                                        Config-Active
+                                    </span>
+                                }
                             </div>
 
                             {/* Material Mini-Cards */}
@@ -87,61 +82,72 @@ export default function Dashboard() {
                                         <Check size={20} strokeWidth={3} className="text-mongodb-neon drop-shadow-[0_0_8px_rgba(0,237,100,0.5)]" />
                                     </div>
                                     <span className="font-medium text-sm text-gray-300 group-hover:text-white transition-colors block">Upload Resume PDF</span>
-                                    <p className="text-xs text-mongodb-neon/70 mt-2 font-mono">resume_v4.pdf</p>
+                                    <input type="file" {...register('resume', { required: 'Resume is required' })} className="w-full bg-transparent border-b border-gray-700 text-xs text-mongodb-neon/90 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-600 transition-colors" />
+                                    {errors.resume && <span className="text-red-500 text-xs mt-1 block px-1">{errors.resume.message}</span>}
                                 </div>
 
                                 {/* GitHub */}
-                                <div className="p-5 rounded-2xl border border-gray-800 bg-gray-900/40 hover:bg-gray-800/60 transition-all group">
-                                    <div className="flex items-center justify-between mb-3">
+                                <div className="p-5 rounded-2xl border border-gray-800 bg-gray-900/40 hover:bg-gray-800/60 transition-all group flex flex-col justify-between">
+                                    <div className="flex items-center justify-between mb-2">
                                         <div className="p-2 bg-gray-800 rounded-lg group-hover:bg-gray-700 transition-colors">
                                             <LinkIcon size={18} className="text-gray-400" />
                                         </div>
-                                        <Check size={20} strokeWidth={3} className="text-mongodb-neon drop-shadow-[0_0_8px_rgba(0,237,100,0.5)]" />
+                                        {githubUrl ? <Check size={20} strokeWidth={3} className="text-mongodb-neon drop-shadow-[0_0_8px_rgba(0,237,100,0.5)]" /> : null}
                                     </div>
-                                    <span className="font-medium text-sm text-gray-300 group-hover:text-white transition-colors block">GitHub Profile URL</span>
-                                    <p className="text-xs text-mongodb-neon/70 mt-2 font-mono truncate">github.com/developer</p>
+                                    <label className="font-medium text-sm text-gray-300 group-hover:text-white transition-colors block mb-1">GitHub Profile URL</label>
+                                    <input
+                                        type="url"
+                                        {...register('githubUrl', { required: 'GitHub URL is required' })}
+                                        placeholder="https://github.com/..."
+                                        className="w-full bg-transparent border-b border-gray-700 text-xs text-mongodb-neon/90 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-600 transition-colors"
+                                    />
+                                    {errors.githubUrl && <span className="text-red-500 text-xs mt-1 block px-1">{errors.githubUrl.message}</span>}
                                 </div>
                             </div>
 
                             {/* Job Description (full width) */}
-                            <div className="p-5 rounded-2xl border border-dashed border-gray-800/60 bg-gray-900/20 hover:bg-gray-800/40 transition-all group">
-                                <div className="flex items-center justify-between mb-3">
+                            <div className="rounded-2xl border border-dashed border-gray-800/60 bg-gray-900/20 hover:bg-gray-800/40 transition-all group overflow-hidden focus-within:border-mongodb-neon focus-within:bg-gray-800/40 focus-within:border-solid">
+                                <div className="flex items-center gap-2 px-5 pt-4 pb-2">
                                     <div className="p-2 bg-gray-800/50 rounded-lg">
-                                        <Clipboard size={18} className="text-gray-500" />
+                                        <Clipboard size={18} className="text-gray-500 group-focus-within:text-mongodb-neon transition-colors" />
                                     </div>
-                                    <div className="w-5 h-5 border-2 border-gray-700 rounded-full opacity-50" />
+                                    <span className="font-medium text-[15px] text-gray-400 group-focus-within:text-gray-300 transition-colors block">Paste Job Description</span>
                                 </div>
-                                <span className="font-medium text-[15px] text-gray-400 group-hover:text-gray-300 transition-colors block">Paste Job Description</span>
-                                <p className="text-xs text-gray-600 mt-2 font-mono">Awaiting input…</p>
+                                <textarea
+                                    {...register('jobDescription', { required: 'Job description is required' })}
+                                    placeholder="Enter requirements, preferred qualifications..."
+                                    className="w-full bg-transparent text-gray-300 px-5 pb-5 pt-1 min-h-[120px] focus:outline-none resize-y text-sm placeholder-gray-600 font-sans"
+                                />
+                                {errors.jobDescription && <span className="text-red-500 text-xs px-5 pb-3 block">{errors.jobDescription.message}</span>}
                             </div>
 
                             {/* Target Role */}
                             <div className="space-y-2">
                                 <label className="text-sm font-semibold text-gray-300">Target Role</label>
                                 <select
-                                    value={role}
-                                    onChange={(e) => setRole(e.target.value)}
-                                    className="w-full bg-gray-900/50 border border-gray-800 rounded-xl text-gray-100 py-3.5 px-4 appearance-none focus:outline-none focus:ring-1 focus:ring-mongodb-neon focus:border-mongodb-neon transition-all cursor-pointer hover:border-gray-700 hover:bg-gray-800/50"
+                                    {...register('role', { required: 'Role is required' })}
+                                    className="w-full bg-gray-900/50 border border-gray-800 rounded-xl text-gray-100 py-3.5 px-4 focus:outline-none focus:ring-1 focus:ring-mongodb-neon focus:border-mongodb-neon transition-all cursor-pointer hover:border-gray-700 hover:bg-gray-800/50"
                                 >
-                                    <option>Senior Backend Engineer</option>
-                                    <option>Frontend Developer</option>
-                                    <option>Full-Stack Engineer</option>
-                                    <option>DevOps Engineer</option>
+                                    <option className="bg-gray-900 text-gray-100">Senior Backend Engineer</option>
+                                    <option className="bg-gray-900 text-gray-100">Frontend Developer</option>
+                                    <option className="bg-gray-900 text-gray-100">Full-Stack Engineer</option>
+                                    <option className="bg-gray-900 text-gray-100">DevOps Engineer</option>
                                 </select>
+                                {errors.role && <span className="text-red-500 text-xs mt-1 block px-1">{errors.role.message}</span>}
                             </div>
                         </div>
 
                         {/* Prepare Button */}
                         <div className="pt-8 flex justify-end">
                             <button
-                                disabled
-                                className="flex items-center gap-2 bg-gray-800/50 text-gray-500 border border-gray-700/50 font-bold py-3 px-8 rounded-xl cursor-not-allowed"
+                                type="submit"
+                                className="flex items-center gap-2 bg-[#77E876] text-[#001D29] font-semibold py-3 px-6 rounded-2xl hover:bg-[#68d167] transition-colors"
                             >
                                 Prepare Interview Plan
-                                <Zap size={18} className="opacity-50" />
+                                <Zap size={18} className="fill-transparent stroke-[#001D29] stroke-2" />
                             </button>
                         </div>
-                    </div>
+                    </form>
 
                     {/* ── Card 2: Interview Plan (Right) ── */}
                     <div className="col-span-12 lg:col-span-5 bg-mongodb-card border border-gray-800 rounded-3xl p-8 flex flex-col min-h-[500px] shadow-2xl relative overflow-hidden">

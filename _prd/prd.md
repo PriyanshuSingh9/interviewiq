@@ -21,12 +21,12 @@
 
 | Concern | Model | Reason |
 |---------|-------|--------|
-| Resume/GitHub/JD analysis |OpenAI `gpt-4o-mini` (cloud) | Structured JSON output
+| Resume/GitHub/JD analysis | Gemini (cloud) | Structured JSON output
 
-| Live voice interview | OpenAI `gpt-4o-mini-realtime` (cloud) | Sub-100ms audio response, natural voice |
-| Post-interview report | OpenAI `gpt-4o-mini` (cloud)  | Structured JSON output
+| Live voice interview | Gemini Multimodal Live API (cloud) | Low-latency audio response, natural voice |
+| Post-interview report | Gemini (cloud)  | Structured JSON output
 
-| Interruption eval (fast) | OpenAI `gpt-4o-mini` chat (cloud) | 300-500ms eval on rolling transcript, cheaper than realtime |
+| Interruption eval (fast) | Gemini (cloud) | Fast eval on rolling transcript |
 
 ### The Two-Server Architecture
 
@@ -58,12 +58,12 @@ Upload form
 
 /interview/[id]
   → Browser opens WebSocket to Bridge (:3001/session/[id])
-  → Bridge opens WebSocket to OpenAI Realtime API
+  → Bridge opens WebSocket to Gemini Multimodal Live API
   → Bridge injects Round 1 system prompt → session configured
   → Browser starts mic capture → audio flows both ways + candidate camera althrough it will be of no use for processing, it will be only used to give a real interview feel
   → Interruption Engine runs in parallel on rolling transcript
   → Director watches for round transition triggers
-  → On interview end → Bridge closes OpenAI WS → signals browser
+  → On interview end → Bridge closes Gemini WS → signals browser
   → Browser redirects to /report/[id]
 
 /report/[id]
@@ -80,9 +80,9 @@ Upload form
 | Voice UI | Web Audio API + MediaRecorder | Mic capture, PCM16 encoding, audio playback |
 | Bridge Server | Node.js + Express + `ws` | Raw WebSocket (no Socket.io — we're relaying binary audio) |
 | Persistent Storage | PostgreSQL + Drizzle ORM | Interview history, final reports
-| Cloud LLM (eval) | OpenAI gpt-4o-mini- | pre interview prep |
-| Cloud LLM (voice) | OpenAI gpt-4o-mini-realtime | Live interview |
-| Cloud LLM (eval) | OpenAI gpt-4o-mini chat | Interruption quality eval (~300ms) |
+| Cloud LLM (eval) | Gemini | pre interview prep |
+| Cloud LLM (voice) | Gemini Multimodal Live API | Live interview |
+| Cloud LLM (eval) | Gemini chat | Interruption quality eval |
 | PDF Parsing | pdf-parse | Resume extraction |
 | GitHub | @octokit/rest | Architectural skeleton fetching |
 | Report PDF | Puppeteer | Render report page → PDF download |
@@ -113,8 +113,8 @@ To prevent context rot, the detailed implementation logic has been sharded into 
 | PDF has no extractable text (scanned) | Detect empty string after parse → surface error: "Your PDF appears to be a scanned image. Please upload a text-based PDF." |
 | GitHub profile has 0 public repos | Proceed with resume + JD only. Note in profile: "No public repos found — project questions will be based on resume only." |
 | GitHub profile is private | Same as above |
-| OpenAI API key invalid/expired | Bridge server catches 401 on WS open → sends error to browser → show "Interview engine unavailable. Check API key." |
-| OpenAI rate limit | 429 on WS connect → retry once after 5s → if fails, surface to user |
+| Gemini API key invalid/expired | Bridge server catches 401 on WS open → sends error to browser → show "Interview engine unavailable. Check API key." |
+| Gemini rate limit | 429 on WS connect → retry once after 5s → if fails, surface to user |
 | Microphone permission denied | `getUserMedia` throws → show persistent banner: "Microphone access is required. Please allow it in your browser settings." |
 | Candidate doesn't speak for >60s | VAD silence → bridge detects no speech events → send `{ type: 'idle_warning' }` → UI shows "Are you still there?" |
 | Interview exceeds 60 minutes | Force end: bridge sends closing prompt injection + `interview_complete` event |

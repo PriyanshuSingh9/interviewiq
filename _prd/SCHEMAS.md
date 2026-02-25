@@ -1,6 +1,6 @@
 # Data Schemas & Redis Keys
 
-This file serves as the single source of truth for all structured data passed between the Next.js frontend, the Bridge Server, OpenAI, and Ollama.
+This file serves as the single source of truth for all structured data passed between the Next.js frontend, the Bridge Server, and Gemini.
 
 ## 1. Candidate Profile Schema (Phase 1 Output to Redis)
 **Key:** `context:{sessionId}`

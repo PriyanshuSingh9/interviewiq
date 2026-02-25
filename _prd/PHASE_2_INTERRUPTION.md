@@ -7,9 +7,9 @@
 **Design principle:** Only interrupt when a multi-signal weighted score exceeds threshold. Never interrupt on a single signal alone. Never interrupt a strong answer.
 
 ```js
-import OpenAI from 'openai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
 
 export class InterruptionEngine {
   constructor(sessionState) {
@@ -111,16 +111,10 @@ export class InterruptionEngine {
   }
 
   async _quickQualityEval() {
-    // Uses gpt-4o-mini chat (not realtime) — fast and cheap
+    // Uses Gemini chat (not realtime) — fast and cheap
     // Each call: ~150 input tokens + 5 output tokens = ~$0.00003
-    try {
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        max_tokens: 5,
-        temperature: 0,
-        messages: [{
-          role: 'user',
-          content: `Rate this interview answer in one word.
+    const transcriptWindow = this.rollingTranscript.slice(-600);
+    const evalPrompt = `Rate this interview answer in one word.
 Words to choose from: STRONG, ADEQUATE, WEAK, CIRCULAR, OFF_TOPIC
 
 STRONG = specific, technically accurate, addresses the question directly

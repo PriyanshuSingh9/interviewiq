@@ -15,6 +15,7 @@ export default function Dashboard() {
     });
     const [reset, setReset] = useState(false);
 
+    const resume = watch('resume');
     const githubUrl = watch('githubUrl');
 
     const onSubmit = (data) => {
@@ -79,10 +80,10 @@ export default function Dashboard() {
                                         <div className="p-2 bg-gray-800 rounded-lg group-hover:bg-gray-700 transition-colors">
                                             <Paperclip size={18} className="text-gray-400" />
                                         </div>
-                                        <Check size={20} strokeWidth={3} className="text-mongodb-neon drop-shadow-[0_0_8px_rgba(0,237,100,0.5)]" />
+                                        {resume && resume.length > 0 ? <Check size={20} strokeWidth={3} className="text-mongodb-neon drop-shadow-[0_0_8px_rgba(0,237,100,0.5)]" /> : null}
                                     </div>
                                     <span className="font-medium text-sm text-gray-300 group-hover:text-white transition-colors block">Upload Resume PDF</span>
-                                    <input type="file" {...register('resume', { required: 'Resume is required' })} className="w-full bg-transparent border-b border-gray-700 text-xs text-mongodb-neon/90 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-600 transition-colors" />
+                                    <input type="file" {...register('resume', { required: 'Resume is required' })} className="w-full bg-transparent border-b border-gray-700 text-xs text-mongodb-neon/90 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-600 transition-colors file:hidden" />
                                     {errors.resume && <span className="text-red-500 text-xs mt-1 block px-1">{errors.resume.message}</span>}
                                 </div>
 
@@ -141,7 +142,7 @@ export default function Dashboard() {
                         <div className="pt-8 flex justify-end">
                             <button
                                 type="submit"
-                                className="flex items-center gap-2 bg-[#77E876] text-[#001D29] font-semibold py-3 px-6 rounded-2xl hover:bg-[#68d167] transition-colors"
+                                className="flex items-center gap-2 bg-mongodb-neon text-[#001D29] font-semibold py-3 px-6 rounded-2xl hover:bg-[#68d167] transition-colors"
                             >
                                 Prepare Interview Plan
                                 <Zap size={18} className="fill-transparent stroke-[#001D29] stroke-2" />

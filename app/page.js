@@ -87,10 +87,6 @@ export default function LandingPage() {
                 Try Mock Interview
               </button>
             </SignInButton>
-            <button className="w-full sm:w-auto group flex items-center justify-center gap-2 bg-transparent text-white border border-white/20 hover:border-white/50 px-8 py-3.5 rounded text-lg font-medium transition-all duration-200">
-              Documentation
-              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-            </button>
           </motion.div>
         </motion.div>
 

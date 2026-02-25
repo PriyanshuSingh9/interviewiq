@@ -5,10 +5,12 @@ import { Navbar } from '@/components/Navbar';
 import { useForm } from 'react-hook-form';
 import { useUser } from '@clerk/nextjs';
 import { saveUser } from '@/app/actions/saveUser';
-import { Paperclip, Link as LinkIcon, Clipboard, Check, PlayCircle, Zap, Clock, Lock, List } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Paperclip, Link as LinkIcon, Clipboard, Check, PlayCircle, Zap, Clock, Lock, List, Loader2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function Dashboard() {
     const { user, isLoaded } = useUser();
+    const router = useRouter();
     const { register, handleSubmit, watch, reset: resetForm, formState: { errors } } = useForm({
         defaultValues: {
             role: 'Senior Backend Engineer',
@@ -16,7 +18,13 @@ export default function Dashboard() {
             jobDescription: ''
         }
     });
-    const [reset, setReset] = useState(false);
+    const [preparing, setPreparing] = useState(false);
+    const [sessionId, setSessionId] = useState(null);
+    const [report, setReport] = useState(null);
+    const [apiError, setApiError] = useState(null);
+    const [showReport, setShowReport] = useState(false);
+
+    const isReady = !!sessionId;
 
     // Sync Clerk user to Neon DB on first load
     useEffect(() => {
@@ -33,10 +41,38 @@ export default function Dashboard() {
     const resume = watch('resume');
     const githubUrl = watch('githubUrl');
 
-    const onSubmit = (data) => {
-        setReset(true);
-        console.log("Preparing interview with:", data);
-        // Add form submission logic here
+    const onSubmit = async (data) => {
+        setPreparing(true);
+        setApiError(null);
+        setSessionId(null);
+        setReport(null);
+
+        try {
+            const formData = new FormData();
+            if (data.resume?.[0]) formData.append('resume', data.resume[0]);
+            formData.append('githubUrl', data.githubUrl || '');
+            formData.append('jobDescription', data.jobDescription);
+            formData.append('targetRole', data.role);
+
+            const res = await fetch('/api/prepare', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const result = await res.json();
+
+            if (!res.ok) {
+                throw new Error(result.error || 'Failed to prepare interview');
+            }
+
+            setSessionId(result.sessionId);
+            setReport(result.report);
+        } catch (err) {
+            console.error('Prepare failed:', err);
+            setApiError(err.message);
+        } finally {
+            setPreparing(false);
+        }
     };
 
     return (
@@ -71,11 +107,13 @@ export default function Dashboard() {
                                     </svg>
                                     <h3 className="text-2xl font-bold text-gray-100">Your Materials</h3>
                                 </div>
-                                {reset ?
+                                {isReady ?
                                     <span className="text-[10px] font-mono text-mongodb-neon/50 border border-mongodb-neon/20 px-2 py-1 rounded bg-mongodb-neon/5 uppercase tracking-widest transition-colors hover:bg-mongodb-neon/10">
                                         <button type="button" onClick={() => {
                                             resetForm();
-                                            setReset(false);
+                                            setSessionId(null);
+                                            setReport(null);
+                                            setApiError(null);
                                         }}>
                                             Reset
                                         </button>
@@ -153,14 +191,40 @@ export default function Dashboard() {
                             </div>
                         </div>
 
+                        {/* Error Message */}
+                        {apiError && (
+                            <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                                <AlertCircle size={16} />
+                                {apiError}
+                            </div>
+                        )}
+
                         {/* Prepare Button */}
                         <div className="pt-8 flex justify-end">
                             <button
                                 type="submit"
-                                className="flex items-center gap-2 bg-mongodb-neon text-[#001D29] font-semibold py-3 px-6 rounded-2xl hover:bg-[#68d167] transition-colors"
+                                disabled={preparing}
+                                className={`flex items-center gap-2 font-semibold py-3 px-6 rounded-2xl transition-colors ${preparing
+                                    ? 'bg-mongodb-neon/50 text-[#001D29]/70 cursor-wait'
+                                    : 'bg-mongodb-neon text-[#001D29] hover:bg-[#68d167]'
+                                    }`}
                             >
-                                Prepare Interview Plan
-                                <Zap size={18} className="fill-transparent stroke-[#001D29] stroke-2" />
+                                {preparing ? (
+                                    <>
+                                        <Loader2 size={18} className="animate-spin" />
+                                        Analyzing...
+                                    </>
+                                ) : isReady ? (
+                                    <>
+                                        <Check size={18} />
+                                        Re-prepare
+                                    </>
+                                ) : (
+                                    <>
+                                        Prepare Interview Plan
+                                        <Zap size={18} className="fill-transparent stroke-[#001D29] stroke-2" />
+                                    </>
+                                )}
                             </button>
                         </div>
                     </form>
@@ -171,66 +235,95 @@ export default function Dashboard() {
                             <List className="w-6 h-6 text-mongodb-neon" />
                             <h3 className="text-2xl font-bold text-gray-100">Interview Plan</h3>
                         </div>
-                        <div className="space-y-4 flex-1">
-                            <div className="flex items-start gap-4 p-4 rounded-xl bg-gray-900/30 border border-mongodb-neon/20">
-                                <div className="w-6 h-6 rounded-full border border-mongodb-neon flex items-center justify-center shrink-0 mt-0.5">
-                                    <Check className="text-mongodb-neon w-4 h-4" />
+
+                        {/* Loading state */}
+                        {preparing && (
+                            <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                                <Loader2 size={32} className="text-mongodb-neon animate-spin" />
+                                <div className="text-center">
+                                    <p className="text-gray-300 font-medium">Analyzing your profile...</p>
+                                    <p className="text-gray-500 text-xs mt-1">Parsing resume, analyzing GitHub, generating report</p>
                                 </div>
-                                <div className="flex-1">
-                                    <h4 className="text-gray-100 font-bold text-sm">System Architecture Design</h4>
-                                    <p className="text-gray-500 text-xs mt-1">Focus: Distributed Caching & Sharding</p>
-                                </div>
-                                <span className="text-mongodb-neon text-[10px] font-mono">45 MIN</span>
                             </div>
-                            <div className="flex items-start gap-4 p-4 rounded-xl bg-gray-900/30 border border-gray-800">
-                                <div className="w-6 h-6 rounded-full border border-gray-800 flex items-center justify-center shrink-0 mt-0.5">
-                                    <Clock className="text-gray-500 w-4 h-4" />
-                                </div>
-                                <div className="flex-1">
-                                    <h4 className="text-gray-100 font-bold text-sm">Concurrency & Performance</h4>
-                                    <p className="text-gray-500 text-xs mt-1">Focus: Go Goroutines & Mutexes</p>
-                                </div>
-                                <span className="text-gray-500 text-[10px] font-mono uppercase">Pending</span>
+                        )}
+
+                        {/* Empty state */}
+                        {!preparing && !report && (
+                            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-gray-500">
+                                <Zap size={28} className="text-gray-700" />
+                                <p className="text-sm text-center">Submit your materials to generate a personalized interview plan</p>
                             </div>
-                            <div className="flex items-start gap-4 p-4 rounded-xl bg-gray-900/30 border border-gray-800">
-                                <div className="w-6 h-6 rounded-full border border-gray-800 flex items-center justify-center shrink-0 mt-0.5">
-                                    <Clock className="text-gray-500 w-4 h-4" />
+                        )}
+
+                        {/* Report data */}
+                        {!preparing && report && report.interviewPlan && (
+                            <>
+                                <div className="space-y-4 flex-1 overflow-y-auto">
+                                    {/* Fit score */}
+                                    {report.fitAnalysis && (
+                                        <div className="p-4 rounded-xl bg-gray-900/30 border border-mongodb-neon/20">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-sm font-bold text-gray-100">Fit Score</span>
+                                                <span className="text-mongodb-neon font-mono font-bold text-lg">{report.fitAnalysis.fitScore}/100</span>
+                                            </div>
+                                            <p className="text-gray-400 text-xs">{report.fitAnalysis.fitReasoning}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Interview rounds */}
+                                    {report.interviewPlan.rounds?.map((round, i) => (
+                                        <div key={i} className={`flex items-start gap-4 p-4 rounded-xl bg-gray-900/30 border ${i === 0 ? 'border-mongodb-neon/20' : 'border-gray-800'}`}>
+                                            <div className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${i === 0 ? 'border-mongodb-neon' : 'border-gray-800'}`}>
+                                                <span className={`text-[10px] font-bold ${i === 0 ? 'text-mongodb-neon' : 'text-gray-500'}`}>{i + 1}</span>
+                                            </div>
+                                            <div className="flex-1">
+                                                <h4 className="text-gray-100 font-bold text-sm">{round.name}</h4>
+                                                <p className="text-gray-500 text-xs mt-1">Focus: {round.focus}</p>
+                                            </div>
+                                            <span className={`text-[10px] font-mono ${i === 0 ? 'text-mongodb-neon' : 'text-gray-500'}`}>{round.durationMinutes} MIN</span>
+                                        </div>
+                                    ))}
+
+                                    {/* Weakest area */}
+                                    {report.interviewPlan.weakestAreaToProbe && (
+                                        <div className="p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/20">
+                                            <span className="text-[10px] font-bold text-yellow-400 uppercase">Weakest Area to Probe</span>
+                                            <p className="text-gray-300 text-xs mt-1">{report.interviewPlan.weakestAreaToProbe}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Collapsible full report */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowReport(!showReport)}
+                                        className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-200 transition-colors w-full py-2"
+                                    >
+                                        {showReport ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                        {showReport ? 'Hide' : 'View'} Full Analysis
+                                    </button>
+
+                                    {showReport && (
+                                        <pre className="text-[10px] text-gray-500 font-mono bg-gray-900/50 p-4 rounded-xl overflow-auto max-h-[300px] border border-gray-800">
+                                            {JSON.stringify(report, null, 2)}
+                                        </pre>
+                                    )}
                                 </div>
-                                <div className="flex-1">
-                                    <h4 className="text-gray-100 font-bold text-sm">Behavioral: Leadership</h4>
-                                    <p className="text-gray-500 text-xs mt-1">Focus: Conflict Resolution (STAR)</p>
-                                </div>
-                                <span className="text-gray-500 text-[10px] font-mono uppercase">Pending</span>
-                            </div>
-                            <div className="flex items-start gap-4 p-4 rounded-xl bg-gray-900/30 border border-gray-800 opacity-50">
-                                <div className="w-6 h-6 rounded-full border border-gray-800 flex items-center justify-center shrink-0 mt-0.5">
-                                    <Lock className="text-gray-500 w-4 h-4" />
-                                </div>
-                                <div className="flex-1">
-                                    <h4 className="text-gray-400 font-bold text-sm">API Security Patterns</h4>
-                                    <p className="text-gray-600 text-xs mt-1">Focus: OAuth2 & JWT flows</p>
-                                </div>
-                                <span className="text-gray-600 text-[10px] font-mono uppercase">Locked</span>
-                            </div>
-                            <div className="flex items-start gap-4 p-4 rounded-xl bg-gray-900/30 border border-gray-800 opacity-50">
-                                <div className="w-6 h-6 rounded-full border border-gray-800 flex items-center justify-center shrink-0 mt-0.5">
-                                    <Lock className="text-gray-500 w-4 h-4" />
-                                </div>
-                                <div className="flex-1">
-                                    <h4 className="text-gray-400 font-bold text-sm">Refactoring & Review</h4>
-                                    <p className="text-gray-600 text-xs mt-1">Focus: Complex PR Feedback</p>
-                                </div>
-                                <span className="text-gray-600 text-[10px] font-mono uppercase">Locked</span>
-                            </div>
-                        </div>
-                        <div className="mt-6 pt-6 border-t border-gray-800 flex items-center justify-between">
-                            <div className="flex -space-x-2">
-                                <div className="w-8 h-8 rounded-full border-2 border-mongodb-card bg-gray-800 flex items-center justify-center text-[10px] font-medium text-white">JS</div>
-                                <div className="w-8 h-8 rounded-full border-2 border-mongodb-card bg-gray-800 flex items-center justify-center text-[10px] font-medium text-white">GO</div>
-                                <div className="w-8 h-8 rounded-full border-2 border-mongodb-card bg-gray-800 flex items-center justify-center text-[10px] font-medium text-white">SQL</div>
-                            </div>
-                            <p className="text-xs text-gray-400">3 Technical Domains Identified</p>
-                        </div>
+
+                                {/* Level calibration footer */}
+                                {report.levelCalibration && (
+                                    <div className="mt-6 pt-6 border-t border-gray-800 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-mono text-gray-500 uppercase">Applied</span>
+                                            <span className="text-xs font-semibold text-gray-300">{report.levelCalibration.appliedLevel}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-mono text-gray-500 uppercase">Evidence</span>
+                                            <span className="text-xs font-semibold text-mongodb-neon">{report.levelCalibration.evidenceLevel}</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
             </main>
@@ -243,37 +336,40 @@ export default function Dashboard() {
                     <div className="hidden md:flex flex-col border-l-2 border-gray-800 pl-4">
                         <span className="text-gray-500 text-[9px] font-bold uppercase tracking-widest mb-0.5">Network Status</span>
                         <div className="flex items-center gap-2">
-                            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${reset ? 'bg-mongodb-neon shadow-[0_0_6px_rgba(0,237,100,0.5)]' : 'bg-gray-700'}`} />
-                            <span className={`${reset ? 'text-mongodb-neon' : 'text-gray-500'} font-mono text-[11px] transition-colors`}>
-                                {reset ? 'System Ready' : 'Waiting For Inputs'}
+                            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isReady ? 'bg-mongodb-neon shadow-[0_0_6px_rgba(0,237,100,0.5)]' : preparing ? 'bg-yellow-500 shadow-[0_0_6px_rgba(234,179,8,0.5)]' : 'bg-gray-700'}`} />
+                            <span className={`${isReady ? 'text-mongodb-neon' : preparing ? 'text-yellow-500' : 'text-gray-500'} font-mono text-[11px] transition-colors`}>
+                                {preparing ? 'Processing...' : isReady ? 'System Ready' : 'Waiting For Inputs'}
                             </span>
                         </div>
                     </div>
 
                     {/* CTA Button */}
                     <button
-                        disabled={!reset}
+                        disabled={!isReady || preparing}
                         onClick={() => {
-                            if (reset) {
-                                console.log('Starting interview...');
-                                // Add interview route push or handler here
+                            if (isReady) {
+                                router.push(`/interview/${sessionId}`);
                             }
                         }}
                         className={`w-full md:w-[55%] lg:w-[40%] font-semibold py-2.5 px-5 rounded-xl shadow-xl flex items-center gap-3 transition-all duration-300 
-                            ${reset
+                            ${isReady
                                 ? 'bg-mongodb-neon text-[#001D29] cursor-pointer hover:bg-[#68d167] hover:scale-[1.02] active:scale-[0.98]'
                                 : 'bg-mongodb-card border border-gray-800 text-gray-500 cursor-not-allowed hover:border-gray-700'
                             }`}
                     >
                         <div className="flex-1 text-left pl-1">
                             <span className="text-base block leading-tight">Start Interview</span>
-                            <span className={`block text-[10px] font-normal uppercase tracking-widest font-mono transition-colors mt-0.5 ${reset ? 'text-[#001D29]/70' : 'text-gray-600'}`}>
-                                {reset ? 'Systems Initialized' : 'Requires Prepared Plan'}
+                            <span className={`block text-[10px] font-normal uppercase tracking-widest font-mono transition-colors mt-0.5 ${isReady ? 'text-[#001D29]/70' : 'text-gray-600'}`}>
+                                {preparing ? 'Preparing...' : isReady ? 'Systems Initialized' : 'Requires Prepared Plan'}
                             </span>
                         </div>
-                        <div className={`p-2 rounded-lg flex items-center justify-center transition-colors ${reset ? 'bg-[#001D29]/10 text-[#001D29]' : 'bg-gray-900 border border-gray-800 text-gray-600'
+                        <div className={`p-2 rounded-lg flex items-center justify-center transition-colors ${isReady ? 'bg-[#001D29]/10 text-[#001D29]' : 'bg-gray-900 border border-gray-800 text-gray-600'
                             }`}>
-                            <PlayCircle size={20} className={reset ? 'fill-transparent stroke-[#001D29] stroke-2' : ''} />
+                            {preparing ? (
+                                <Loader2 size={20} className="animate-spin" />
+                            ) : (
+                                <PlayCircle size={20} className={isReady ? 'fill-transparent stroke-[#001D29] stroke-2' : ''} />
+                            )}
                         </div>
                     </button>
                 </div>

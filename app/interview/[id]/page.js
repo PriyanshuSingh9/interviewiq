@@ -94,6 +94,7 @@ export default function InterviewRoom({ params }) {
   const [candidateSpeaking, setCandidateSpeaking] = useState(false);
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [geminiStatus, setGeminiStatus] = useState("idle"); // idle | connecting | connected | live | error | disconnected
+  const [mediaStream, setMediaStream] = useState(null);  // triggers Gemini connection reliably
   const transcriptRef = useRef(null);
   const geminiRef = useRef(null);     // GeminiLiveSession instance
 
@@ -113,6 +114,7 @@ export default function InterviewRoom({ params }) {
           audio: true,
         });
         streamRef.current = stream;
+        setMediaStream(stream);  // state change → triggers Gemini useEffect
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
@@ -163,7 +165,9 @@ export default function InterviewRoom({ params }) {
       if (audioCtxRef.current) audioCtxRef.current.close();
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
       }
+      setMediaStream(null);
     };
   }, []);
 
@@ -192,11 +196,16 @@ export default function InterviewRoom({ params }) {
   }, []);
 
   // ── Connect Gemini Live when stream is ready ────────
+  // Uses mediaStream STATE (not ref) so React reliably re-runs this effect
   useEffect(() => {
-    if (!streamRef.current || geminiRef.current) return;
+    if (!mediaStream) return;
+
+    // Reset transcript for new session
+    setTranscript([]);
+    setGeminiStatus("idle");
 
     const session = new GeminiLiveSession({
-      stream: streamRef.current,
+      stream: mediaStream,
       onTranscript: (role, text) => {
         setTranscript((prev) => {
           // If the last entry is the same role, append text to it
@@ -224,9 +233,7 @@ export default function InterviewRoom({ params }) {
       session.disconnect();
       geminiRef.current = null;
     };
-    // We intentionally only run this when the stream becomes available
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [streamRef.current]);
+  }, [mediaStream]);
 
   // Auto-scroll transcript
   useEffect(() => {
@@ -258,9 +265,9 @@ export default function InterviewRoom({ params }) {
         <div className="flex items-center gap-3">
           {/* Gemini connection status */}
           <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border ${geminiStatus === "live" ? "bg-green-500/10 border-green-500/30" :
-              geminiStatus === "connecting" || geminiStatus === "connected" ? "bg-yellow-500/10 border-yellow-500/30" :
-                geminiStatus === "error" ? "bg-red-500/10 border-red-500/30" :
-                  "bg-white/5 border-white/10"
+            geminiStatus === "connecting" || geminiStatus === "connected" ? "bg-yellow-500/10 border-yellow-500/30" :
+              geminiStatus === "error" ? "bg-red-500/10 border-red-500/30" :
+                "bg-white/5 border-white/10"
             }`}>
             {geminiStatus === "live" ? (
               <><Wifi size={12} className="text-green-400" /><span className="text-xs font-semibold text-green-400 uppercase tracking-wider">AI Live</span></>

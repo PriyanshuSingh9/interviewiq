@@ -15,8 +15,12 @@ import {
   Activity,
   X,
   Star,
+  Wifi,
+  WifiOff,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { GeminiLiveSession } from "@/lib/gemini-live";
 
 // ─────────────────────────────────────────
 // Mock data
@@ -29,12 +33,7 @@ const CANDIDATE = {
   applyFor: "Principal Engineer – Growth Pod",
 };
 
-const TRANSCRIPT = [
-  { speaker: "interviewer", text: "Thanks for joining, Priya. Can you walk me through the most challenging technical problem you've solved in the last year?", time: "00:02" },
-  { speaker: "candidate", text: "Sure! At my last company we were hitting serious performance bottlenecks in our React render cycle. I profiled it with Chrome DevTools and discovered we were re-rendering an entire tree on every websocket event...", time: "00:40" },
-  { speaker: "interviewer", text: "Interesting. How did you ultimately fix the rendering issue?", time: "02:10" },
-  { speaker: "candidate", text: "I restructured the state to isolate volatile slices with Zustand, and wrapped the heavy components with React.memo. We also debounced the websocket updates.", time: "02:45" },
-];
+// Transcript is now populated live from Gemini
 
 const EVALUATION_CRITERIA = [
   { label: "Problem Solving", score: 4, max: 5 },
@@ -86,15 +85,17 @@ export default function InterviewRoom({ params }) {
   const elapsed = useTimer();
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
-  const [activePanel, setActivePanel] = useState(null); // null | "transcript"
+  const [activePanel, setActivePanel] = useState("transcript"); // open transcript by default
   const [chatMsg, setChatMsg] = useState("");
   const [notes, setNotes] = useState("");
   const [scores, setScores] = useState({ "Problem Solving": 4, Communication: 3, "Technical Depth": 4, "Culture Fit": 0 });
   const [questions, setQuestions] = useState(QUESTIONS_BANK);
-  const [transcript] = useState(TRANSCRIPT);
+  const [transcript, setTranscript] = useState([]);  // live transcript from Gemini
   const [candidateSpeaking, setCandidateSpeaking] = useState(false);
-  const [aiSpeaking, setAiSpeaking] = useState(false); // will be driven by TTS later
+  const [aiSpeaking, setAiSpeaking] = useState(false);
+  const [geminiStatus, setGeminiStatus] = useState("idle"); // idle | connecting | connected | live | error | disconnected
   const transcriptRef = useRef(null);
+  const geminiRef = useRef(null);     // GeminiLiveSession instance
 
   // ── Candidate webcam + mic ──────────────────────────
   const videoRef = useRef(null);      // <video> element
@@ -190,6 +191,43 @@ export default function InterviewRoom({ params }) {
     });
   }, []);
 
+  // ── Connect Gemini Live when stream is ready ────────
+  useEffect(() => {
+    if (!streamRef.current || geminiRef.current) return;
+
+    const session = new GeminiLiveSession({
+      stream: streamRef.current,
+      onTranscript: (role, text) => {
+        setTranscript((prev) => {
+          // If the last entry is the same role, append text to it
+          // (transcription arrives in chunks)
+          const last = prev[prev.length - 1];
+          if (last && last.role === role) {
+            return [
+              ...prev.slice(0, -1),
+              { ...last, text: last.text + text },
+            ];
+          }
+          // Otherwise, start a new entry
+          return [...prev, { role, text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
+        });
+      },
+      onAiSpeaking: (speaking) => setAiSpeaking(speaking),
+      onStatusChange: (status) => setGeminiStatus(status),
+      onError: (err) => console.error("[Gemini]", err),
+    });
+
+    geminiRef.current = session;
+    session.connect();
+
+    return () => {
+      session.disconnect();
+      geminiRef.current = null;
+    };
+    // We intentionally only run this when the stream becomes available
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streamRef.current]);
+
   // Auto-scroll transcript
   useEffect(() => {
     if (transcriptRef.current) {
@@ -218,6 +256,23 @@ export default function InterviewRoom({ params }) {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Gemini connection status */}
+          <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border ${geminiStatus === "live" ? "bg-green-500/10 border-green-500/30" :
+              geminiStatus === "connecting" || geminiStatus === "connected" ? "bg-yellow-500/10 border-yellow-500/30" :
+                geminiStatus === "error" ? "bg-red-500/10 border-red-500/30" :
+                  "bg-white/5 border-white/10"
+            }`}>
+            {geminiStatus === "live" ? (
+              <><Wifi size={12} className="text-green-400" /><span className="text-xs font-semibold text-green-400 uppercase tracking-wider">AI Live</span></>
+            ) : geminiStatus === "connecting" || geminiStatus === "connected" ? (
+              <><Loader2 size={12} className="text-yellow-400 animate-spin" /><span className="text-xs font-semibold text-yellow-400 uppercase tracking-wider">Connecting</span></>
+            ) : geminiStatus === "error" ? (
+              <><WifiOff size={12} className="text-red-400" /><span className="text-xs font-semibold text-red-400 uppercase tracking-wider">Error</span></>
+            ) : (
+              <><WifiOff size={12} className="text-[#8899A6]" /><span className="text-xs font-semibold text-[#8899A6] uppercase tracking-wider">Offline</span></>
+            )}
+          </div>
+
           {/* Live badge */}
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/30">
             <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
@@ -395,13 +450,27 @@ export default function InterviewRoom({ params }) {
                   ref={transcriptRef}
                   className="flex-1 overflow-y-auto px-4 py-4 space-y-4 custom-scrollbar"
                 >
+                  {transcript.length === 0 && geminiStatus !== "live" && (
+                    <div className="flex flex-col items-center justify-center h-full text-[#8899A6] gap-2">
+                      <Loader2 size={20} className="animate-spin text-mongodb-neon" />
+                      <span className="text-xs">Connecting to AI Interviewer...</span>
+                    </div>
+                  )}
+
+                  {transcript.length === 0 && geminiStatus === "live" && (
+                    <div className="flex flex-col items-center justify-center h-full text-[#8899A6] gap-2">
+                      <Activity size={20} className="text-mongodb-neon animate-pulse" />
+                      <span className="text-xs">AI Interviewer is starting...</span>
+                    </div>
+                  )}
+
                   {transcript.map((item, i) => (
                     <div key={i} className="group">
                       <div className="flex items-center gap-2 mb-1">
-                        {item.speaker === "interviewer" ? (
-                          <span className="text-[10px] font-bold text-[#8899A6] uppercase bg-[#113247] px-2 py-0.5 rounded">You</span>
+                        {item.role === "ai" ? (
+                          <span className="text-[10px] font-bold text-mongodb-neon uppercase bg-mongodb-neon/10 px-2 py-0.5 rounded border border-mongodb-neon/20">AI</span>
                         ) : (
-                          <span className="text-[10px] font-bold text-mongodb-neon uppercase bg-mongodb-neon/10 px-2 py-0.5 rounded border border-mongodb-neon/20">{CANDIDATE.name.split(" ")[0]}</span>
+                          <span className="text-[10px] font-bold text-[#8899A6] uppercase bg-[#113247] px-2 py-0.5 rounded">You</span>
                         )}
                         <span className="text-[10px] text-[#8899A6] font-mono">{item.time}</span>
                       </div>
@@ -409,22 +478,24 @@ export default function InterviewRoom({ params }) {
                     </div>
                   ))}
 
-                  {/* Live indicator */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      {candidateSpeaking ? (
-                        <span className="text-[10px] font-bold text-mongodb-neon uppercase bg-mongodb-neon/10 px-2 py-0.5 rounded border border-mongodb-neon/20">{CANDIDATE.name.split(" ")[0]}</span>
-                      ) : (
-                        <span className="text-[10px] font-bold text-[#8899A6] uppercase bg-[#113247] px-2 py-0.5 rounded">You</span>
-                      )}
-                      <span className="text-[10px] text-mongodb-neon animate-pulse">● Speaking</span>
+                  {/* Live speaking indicator */}
+                  {(candidateSpeaking || aiSpeaking) && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        {aiSpeaking ? (
+                          <span className="text-[10px] font-bold text-mongodb-neon uppercase bg-mongodb-neon/10 px-2 py-0.5 rounded border border-mongodb-neon/20">AI</span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-[#8899A6] uppercase bg-[#113247] px-2 py-0.5 rounded">You</span>
+                        )}
+                        <span className="text-[10px] text-mongodb-neon animate-pulse">● Speaking</span>
+                      </div>
+                      <div className="flex gap-1">
+                        {[1, 2, 3].map((n) => (
+                          <div key={n} className="w-1.5 h-1.5 bg-mongodb-neon rounded-full animate-bounce" style={{ animationDelay: `${n * 150}ms` }} />
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      {[1, 2, 3].map((n) => (
-                        <div key={n} className="w-1.5 h-1.5 bg-mongodb-neon rounded-full animate-bounce" style={{ animationDelay: `${n * 150}ms` }} />
-                      ))}
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}

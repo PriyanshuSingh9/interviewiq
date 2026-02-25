@@ -45,7 +45,7 @@ Browser (:5173 dev / :3000 prod)
   │                              - Runs Director (round management)
   │                              - Runs Interruption Engine
   │                              - Logs transcript to Redis
-
+```
 ### Data Flow Summary
 
 ```

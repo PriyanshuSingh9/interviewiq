@@ -8,6 +8,9 @@ datasource db {
 
 model User{
   id String @id @default(uuid())
+  clerkId String @unique
+  name String 
+  email String @unique
   githubProfile String?
   createdAt DateTime @default(now())
   presets InterviewPreset[]
@@ -29,7 +32,7 @@ model InterviewSessions{
   presetId String
   preset InterviewPreset @relation(fields: [presetId], references: [id])
   audioLocation String
-  preInterviewReport String
-  postInterviewReport String
+  preInterviewReport  Json?
+  postInterviewReport Json?
   createdAt DateTime @default(now())
 }

@@ -28,8 +28,6 @@ export type InterviewSessionsMinAggregateOutputType = {
   id: string | null
   presetId: string | null
   audioLocation: string | null
-  preInterviewReport: string | null
-  postInterviewReport: string | null
   createdAt: Date | null
 }
 
@@ -37,8 +35,6 @@ export type InterviewSessionsMaxAggregateOutputType = {
   id: string | null
   presetId: string | null
   audioLocation: string | null
-  preInterviewReport: string | null
-  postInterviewReport: string | null
   createdAt: Date | null
 }
 
@@ -57,8 +53,6 @@ export type InterviewSessionsMinAggregateInputType = {
   id?: true
   presetId?: true
   audioLocation?: true
-  preInterviewReport?: true
-  postInterviewReport?: true
   createdAt?: true
 }
 
@@ -66,8 +60,6 @@ export type InterviewSessionsMaxAggregateInputType = {
   id?: true
   presetId?: true
   audioLocation?: true
-  preInterviewReport?: true
-  postInterviewReport?: true
   createdAt?: true
 }
 
@@ -157,8 +149,8 @@ export type InterviewSessionsGroupByOutputType = {
   id: string
   presetId: string
   audioLocation: string
-  preInterviewReport: string
-  postInterviewReport: string
+  preInterviewReport: runtime.JsonValue | null
+  postInterviewReport: runtime.JsonValue | null
   createdAt: Date
   _count: InterviewSessionsCountAggregateOutputType | null
   _min: InterviewSessionsMinAggregateOutputType | null
@@ -187,8 +179,8 @@ export type InterviewSessionsWhereInput = {
   id?: Prisma.StringFilter<"InterviewSessions"> | string
   presetId?: Prisma.StringFilter<"InterviewSessions"> | string
   audioLocation?: Prisma.StringFilter<"InterviewSessions"> | string
-  preInterviewReport?: Prisma.StringFilter<"InterviewSessions"> | string
-  postInterviewReport?: Prisma.StringFilter<"InterviewSessions"> | string
+  preInterviewReport?: Prisma.JsonNullableFilter<"InterviewSessions">
+  postInterviewReport?: Prisma.JsonNullableFilter<"InterviewSessions">
   createdAt?: Prisma.DateTimeFilter<"InterviewSessions"> | Date | string
   preset?: Prisma.XOR<Prisma.InterviewPresetScalarRelationFilter, Prisma.InterviewPresetWhereInput>
 }
@@ -197,8 +189,8 @@ export type InterviewSessionsOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   presetId?: Prisma.SortOrder
   audioLocation?: Prisma.SortOrder
-  preInterviewReport?: Prisma.SortOrder
-  postInterviewReport?: Prisma.SortOrder
+  preInterviewReport?: Prisma.SortOrderInput | Prisma.SortOrder
+  postInterviewReport?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   preset?: Prisma.InterviewPresetOrderByWithRelationInput
 }
@@ -210,8 +202,8 @@ export type InterviewSessionsWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.InterviewSessionsWhereInput | Prisma.InterviewSessionsWhereInput[]
   presetId?: Prisma.StringFilter<"InterviewSessions"> | string
   audioLocation?: Prisma.StringFilter<"InterviewSessions"> | string
-  preInterviewReport?: Prisma.StringFilter<"InterviewSessions"> | string
-  postInterviewReport?: Prisma.StringFilter<"InterviewSessions"> | string
+  preInterviewReport?: Prisma.JsonNullableFilter<"InterviewSessions">
+  postInterviewReport?: Prisma.JsonNullableFilter<"InterviewSessions">
   createdAt?: Prisma.DateTimeFilter<"InterviewSessions"> | Date | string
   preset?: Prisma.XOR<Prisma.InterviewPresetScalarRelationFilter, Prisma.InterviewPresetWhereInput>
 }, "id">
@@ -220,8 +212,8 @@ export type InterviewSessionsOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   presetId?: Prisma.SortOrder
   audioLocation?: Prisma.SortOrder
-  preInterviewReport?: Prisma.SortOrder
-  postInterviewReport?: Prisma.SortOrder
+  preInterviewReport?: Prisma.SortOrderInput | Prisma.SortOrder
+  postInterviewReport?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.InterviewSessionsCountOrderByAggregateInput
   _max?: Prisma.InterviewSessionsMaxOrderByAggregateInput
@@ -235,16 +227,16 @@ export type InterviewSessionsScalarWhereWithAggregatesInput = {
   id?: Prisma.StringWithAggregatesFilter<"InterviewSessions"> | string
   presetId?: Prisma.StringWithAggregatesFilter<"InterviewSessions"> | string
   audioLocation?: Prisma.StringWithAggregatesFilter<"InterviewSessions"> | string
-  preInterviewReport?: Prisma.StringWithAggregatesFilter<"InterviewSessions"> | string
-  postInterviewReport?: Prisma.StringWithAggregatesFilter<"InterviewSessions"> | string
+  preInterviewReport?: Prisma.JsonNullableWithAggregatesFilter<"InterviewSessions">
+  postInterviewReport?: Prisma.JsonNullableWithAggregatesFilter<"InterviewSessions">
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"InterviewSessions"> | Date | string
 }
 
 export type InterviewSessionsCreateInput = {
   id?: string
   audioLocation: string
-  preInterviewReport: string
-  postInterviewReport: string
+  preInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  postInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   preset: Prisma.InterviewPresetCreateNestedOneWithoutSessionsInput
 }
@@ -253,16 +245,16 @@ export type InterviewSessionsUncheckedCreateInput = {
   id?: string
   presetId: string
   audioLocation: string
-  preInterviewReport: string
-  postInterviewReport: string
+  preInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  postInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
 }
 
 export type InterviewSessionsUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   audioLocation?: Prisma.StringFieldUpdateOperationsInput | string
-  preInterviewReport?: Prisma.StringFieldUpdateOperationsInput | string
-  postInterviewReport?: Prisma.StringFieldUpdateOperationsInput | string
+  preInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  postInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preset?: Prisma.InterviewPresetUpdateOneRequiredWithoutSessionsNestedInput
 }
@@ -271,8 +263,8 @@ export type InterviewSessionsUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   presetId?: Prisma.StringFieldUpdateOperationsInput | string
   audioLocation?: Prisma.StringFieldUpdateOperationsInput | string
-  preInterviewReport?: Prisma.StringFieldUpdateOperationsInput | string
-  postInterviewReport?: Prisma.StringFieldUpdateOperationsInput | string
+  preInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  postInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -280,16 +272,16 @@ export type InterviewSessionsCreateManyInput = {
   id?: string
   presetId: string
   audioLocation: string
-  preInterviewReport: string
-  postInterviewReport: string
+  preInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  postInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
 }
 
 export type InterviewSessionsUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   audioLocation?: Prisma.StringFieldUpdateOperationsInput | string
-  preInterviewReport?: Prisma.StringFieldUpdateOperationsInput | string
-  postInterviewReport?: Prisma.StringFieldUpdateOperationsInput | string
+  preInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  postInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -297,8 +289,8 @@ export type InterviewSessionsUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   presetId?: Prisma.StringFieldUpdateOperationsInput | string
   audioLocation?: Prisma.StringFieldUpdateOperationsInput | string
-  preInterviewReport?: Prisma.StringFieldUpdateOperationsInput | string
-  postInterviewReport?: Prisma.StringFieldUpdateOperationsInput | string
+  preInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  postInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -325,8 +317,6 @@ export type InterviewSessionsMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   presetId?: Prisma.SortOrder
   audioLocation?: Prisma.SortOrder
-  preInterviewReport?: Prisma.SortOrder
-  postInterviewReport?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -334,8 +324,6 @@ export type InterviewSessionsMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   presetId?: Prisma.SortOrder
   audioLocation?: Prisma.SortOrder
-  preInterviewReport?: Prisma.SortOrder
-  postInterviewReport?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -384,16 +372,16 @@ export type InterviewSessionsUncheckedUpdateManyWithoutPresetNestedInput = {
 export type InterviewSessionsCreateWithoutPresetInput = {
   id?: string
   audioLocation: string
-  preInterviewReport: string
-  postInterviewReport: string
+  preInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  postInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
 }
 
 export type InterviewSessionsUncheckedCreateWithoutPresetInput = {
   id?: string
   audioLocation: string
-  preInterviewReport: string
-  postInterviewReport: string
+  preInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  postInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
 }
 
@@ -430,40 +418,40 @@ export type InterviewSessionsScalarWhereInput = {
   id?: Prisma.StringFilter<"InterviewSessions"> | string
   presetId?: Prisma.StringFilter<"InterviewSessions"> | string
   audioLocation?: Prisma.StringFilter<"InterviewSessions"> | string
-  preInterviewReport?: Prisma.StringFilter<"InterviewSessions"> | string
-  postInterviewReport?: Prisma.StringFilter<"InterviewSessions"> | string
+  preInterviewReport?: Prisma.JsonNullableFilter<"InterviewSessions">
+  postInterviewReport?: Prisma.JsonNullableFilter<"InterviewSessions">
   createdAt?: Prisma.DateTimeFilter<"InterviewSessions"> | Date | string
 }
 
 export type InterviewSessionsCreateManyPresetInput = {
   id?: string
   audioLocation: string
-  preInterviewReport: string
-  postInterviewReport: string
+  preInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  postInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
 }
 
 export type InterviewSessionsUpdateWithoutPresetInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   audioLocation?: Prisma.StringFieldUpdateOperationsInput | string
-  preInterviewReport?: Prisma.StringFieldUpdateOperationsInput | string
-  postInterviewReport?: Prisma.StringFieldUpdateOperationsInput | string
+  preInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  postInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type InterviewSessionsUncheckedUpdateWithoutPresetInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   audioLocation?: Prisma.StringFieldUpdateOperationsInput | string
-  preInterviewReport?: Prisma.StringFieldUpdateOperationsInput | string
-  postInterviewReport?: Prisma.StringFieldUpdateOperationsInput | string
+  preInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  postInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type InterviewSessionsUncheckedUpdateManyWithoutPresetInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   audioLocation?: Prisma.StringFieldUpdateOperationsInput | string
-  preInterviewReport?: Prisma.StringFieldUpdateOperationsInput | string
-  postInterviewReport?: Prisma.StringFieldUpdateOperationsInput | string
+  preInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  postInterviewReport?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -528,8 +516,8 @@ export type $InterviewSessionsPayload<ExtArgs extends runtime.Types.Extensions.I
     id: string
     presetId: string
     audioLocation: string
-    preInterviewReport: string
-    postInterviewReport: string
+    preInterviewReport: runtime.JsonValue | null
+    postInterviewReport: runtime.JsonValue | null
     createdAt: Date
   }, ExtArgs["result"]["interviewSessions"]>
   composites: {}
@@ -958,8 +946,8 @@ export interface InterviewSessionsFieldRefs {
   readonly id: Prisma.FieldRef<"InterviewSessions", 'String'>
   readonly presetId: Prisma.FieldRef<"InterviewSessions", 'String'>
   readonly audioLocation: Prisma.FieldRef<"InterviewSessions", 'String'>
-  readonly preInterviewReport: Prisma.FieldRef<"InterviewSessions", 'String'>
-  readonly postInterviewReport: Prisma.FieldRef<"InterviewSessions", 'String'>
+  readonly preInterviewReport: Prisma.FieldRef<"InterviewSessions", 'Json'>
+  readonly postInterviewReport: Prisma.FieldRef<"InterviewSessions", 'Json'>
   readonly createdAt: Prisma.FieldRef<"InterviewSessions", 'DateTime'>
 }
     

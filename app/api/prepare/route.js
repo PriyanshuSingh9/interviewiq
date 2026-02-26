@@ -27,36 +27,62 @@ export async function POST(req) {
         const githubUrl = formData.get("githubUrl");
         const jobDescription = formData.get("jobDescription");
         const targetRole = formData.get("targetRole");
+        const existingPresetId = formData.get("presetId"); // optional — reuse existing preset
 
-        if (!resumeFile || !jobDescription || !targetRole) {
+        // Validate: either presetId OR full form data must be provided
+        if (!existingPresetId && (!resumeFile || !jobDescription || !targetRole)) {
             return Response.json(
                 { error: "Missing required fields: resume, jobDescription, targetRole" },
                 { status: 400 }
             );
         }
 
-        // ── Step 1: Parse resume ─────────────────────────────────
-        const resumeBuffer = Buffer.from(await resumeFile.arrayBuffer());
-        let resumeData;
-        try {
-            resumeData = await parseResume(resumeBuffer);
-        } catch (err) {
-            console.error("Resume parsing failed:", err);
-            return Response.json(
-                { error: "Failed to parse resume PDF. Please upload a text-based PDF." },
-                { status: 422 }
-            );
+        // If reusing a preset, load its data
+        let presetId = existingPresetId;
+        let jd = jobDescription;
+        let role = targetRole;
+
+        if (existingPresetId) {
+            const [existingPreset] = await db
+                .select()
+                .from(interviewPresets)
+                .where(eq(interviewPresets.id, existingPresetId))
+                .limit(1);
+
+            if (!existingPreset || existingPreset.userId !== dbUser.id) {
+                return Response.json(
+                    { error: "Preset not found or does not belong to you." },
+                    { status: 404 }
+                );
+            }
+
+            jd = existingPreset.jobDescription;
+            role = existingPreset.targetRole;
         }
 
-        if (!resumeData.text || resumeData.text.trim().length < 50) {
-            return Response.json(
-                { error: "Resume appears to be empty or scanned. Please upload a text-based PDF." },
-                { status: 422 }
-            );
+        // ── Step 1: Parse resume ─────────────────────────────────
+        let resumeData = { text: "", githubUrl: null };
+        if (resumeFile && typeof resumeFile.arrayBuffer === "function") {
+            const resumeBuffer = Buffer.from(await resumeFile.arrayBuffer());
+            try {
+                resumeData = await parseResume(resumeBuffer);
+            } catch (err) {
+                console.error("Resume parsing failed:", err);
+                return Response.json(
+                    { error: "Failed to parse resume PDF. Please upload a text-based PDF." },
+                    { status: 422 }
+                );
+            }
+
+            if (!resumeData.text || resumeData.text.trim().length < 50) {
+                return Response.json(
+                    { error: "Resume appears to be empty or scanned. Please upload a text-based PDF." },
+                    { status: 422 }
+                );
+            }
         }
 
         // ── Step 2: Analyze GitHub ───────────────────────────────
-        // Use the URL from form, or fallback to one found in resume
         const profileUrl = githubUrl || resumeData.githubUrl;
         let githubAnalysis = null;
 
@@ -65,7 +91,6 @@ export async function POST(req) {
                 githubAnalysis = await analyzeGithubProfile(profileUrl);
             } catch (err) {
                 console.error("GitHub analysis failed:", err);
-                // Non-fatal — continue without GitHub data
                 githubAnalysis = { user: null, repos: [], error: err.message };
             }
         }
@@ -76,8 +101,8 @@ export async function POST(req) {
             report = await generatePreInterviewReport({
                 resumeText: resumeData.text,
                 githubAnalysis,
-                jobDescription,
-                targetRole,
+                jobDescription: jd,
+                targetRole: role,
             });
         } catch (err) {
             console.error("Report generation failed:", err);
@@ -91,22 +116,25 @@ export async function POST(req) {
         const systemPrompt = buildSystemPrompt(report);
 
         // ── Step 5: Persist to database ──────────────────────────
-        // Create the interview preset
-        const [preset] = await db
-            .insert(interviewPresets)
-            .values({
-                userId: dbUser.id,
-                jobDescription,
-                resumeLocation: "inline", // stored inline for now
-                targetRole,
-            })
-            .returning();
+        if (!presetId) {
+            // Create a new preset
+            const [preset] = await db
+                .insert(interviewPresets)
+                .values({
+                    userId: dbUser.id,
+                    jobDescription: jd,
+                    resumeLocation: "inline",
+                    targetRole: role,
+                })
+                .returning();
+            presetId = preset.id;
+        }
 
-        // Create the interview session
+        // Create a new session linked to the preset
         const [session] = await db
             .insert(interviewSessions)
             .values({
-                presetId: preset.id,
+                presetId,
                 preInterviewReport: report,
                 systemPrompt,
             })

@@ -1,73 +1,76 @@
 ## 1. Product Overview
 
-**Goal:** Build an agentic AI mock interview platform targeting Software Engineering roles. The AI autonomously conducts end-to-end mock interviews tailored to a candidate's target role, experience level, resume, and GitHub repositories etc.
+**Goal:** Build an agentic AI mock interview platform targeting Software Engineering roles. The AI autonomously conducts end-to-end mock interviews tailored to a candidate's target role, experience level, resume, and GitHub repositories.
 
 **Key Differentiators:**
 - Feels like a real interviewer — not a chatbot
-- has multi persona engine to ask different questions simulating different rounds of interview or a proper interview panel
+- Uses Gemini Multimodal Live API for natural, low-latency voice interaction
+- Leverages deep GitHub profile analysis to ask personalized architectural questions
+- Pre-interview report provides candidate context so the AI interviewer adapts dynamically
+- Provides a structured post-interview debrief
 - Intelligently interrupts rambling using a multi-signal heuristic engine (not a dumb timer)
-- Leverages Architectural Skeleton analysis of GitHub repos to ask deep, personalized architectural trade-off questions
 - Provides a timestamped, annotated technical debrief with specific moment references
 
 **Out of Scope (for this version):**
-- Multiple simultaneous users (single-session focus for hackathon) 
+- Multiple simultaneous users (single-session focus for hackathon)
 - Mobile browser support (desktop Chrome/Edge only)
 
 ---
 
 ## 2. Architecture Overview
 
-### The Hybrid Model — Why Two LLMs
+### Single-Model Architecture — Gemini Throughout
 
 | Concern | Model | Reason |
 |---------|-------|--------|
-| Resume/GitHub/JD analysis | Gemini (cloud) | Structured JSON output
+| Resume/GitHub/JD analysis | Gemini 2.5 Flash | Structured JSON output, fast |
+| Live voice interview | Gemini Multimodal Live API | Low-latency audio, natural voice |
+| Post-interview report | Gemini 2.5 Flash (planned) | Structured JSON output |
 
-| Live voice interview | Gemini Multimodal Live API (cloud) | Low-latency audio response, natural voice |
-| Post-interview report | Gemini (cloud)  | Structured JSON output
-
-| Interruption eval (fast) | Gemini (cloud) | Fast eval on rolling transcript |
-
-### The Two-Server Architecture
+### Architecture
 
 ```
-Browser (:5173 dev / :3000 prod)
+Browser (localhost:3000)
   │
-  ├─── REST ──────────────────► Next.js (:3000)
-  │                              - /upload page
-  │                              - /api/prepare (ingestion)
-  │                              - /api/report/[id] (poll)
-  │                              - /interview/[id] page
-  │                              - /report/[id] page
+  ├─── REST ──────────────► Next.js App Router (:3000)
+  │                          - / (landing page)
+  │                          - /dashboard (ingestion + prepare)
+  │                          - /api/prepare (ingestion pipeline)
+  │                          - /api/gemini-token (ephemeral token)
+  │                          - /api/process-transcript (post-interview)
+  │                          - /interview/[id] (live interview room)
+  │                          - /reports (post-interview reports)
   │
-  ├─── WebSocket ─────────────► Bridge Server (:3001)
-  │                              - Relays audio to/from OpenAI
-  │                              - Runs Director (round management)
-  │                              - Runs Interruption Engine
-  │                              - Logs transcript to Redis
+  └─── WebSocket ──────────► Gemini Multimodal Live API (direct)
+                              - Browser connects directly via ephemeral token
+                              - No intermediate bridge server needed
 ```
+
 ### Data Flow Summary
 
 ```
-Upload form
-  → Next.js /api/prepare
-    → pdf-parse (resume text)
-    → GitHub API (architectural skeletons)
-    → systemPromptBuilder (profile → prompt strings per round)
-  → redirect to /interview/[id]
+/dashboard (form)
+  → POST /api/prepare
+    → unpdf (resume text extraction)
+    → @octokit/rest (GitHub profile + top 3 repo analysis)
+    → Gemini 2.5 Flash (pre-interview report generation)
+    → systemPromptBuilder (report → concise context prompt)
+    → DB insert: InterviewPreset + InterviewSession
+  → Dashboard shows report + "Start Interview" button
+  → Redirect to /interview/[sessionId]
 
 /interview/[id]
-  → Browser opens WebSocket to Bridge (:3001/session/[id])
-  → Bridge opens WebSocket to Gemini Multimodal Live API
-  → Bridge injects Round 1 system prompt → session configured
-  → Browser starts mic capture → audio flows both ways + candidate camera althrough it will be of no use for processing, it will be only used to give a real interview feel
-  → Interruption Engine runs in parallel on rolling transcript
-  → Director watches for round transition triggers
-  → On interview end → Bridge closes Gemini WS → signals browser
-  → Browser redirects to /report/[id]
+  → Browser requests ephemeral token from /api/gemini-token
+  → Browser opens WebSocket to Gemini Multimodal Live API directly
+  → System prompt injected with candidate context
+  → Browser starts mic + camera capture → audio flows both ways
+  → Live transcript displayed in side panel
+  → On interview end → redirect to /reports
 
-/report/[id]
-  → still need to work on this
+/reports (planned)
+  → POST /api/process-transcript with full transcript
+  → Gemini generates structured post-interview report
+  → Display detailed debrief with scores and recommendations
 ```
 
 ---
@@ -76,45 +79,96 @@ Upload form
 
 | Layer | Technology | Notes |
 |-------|-----------|-------|
-| Frontend | Next.js 16 App Router + TailwindCSS | App Router for file-based routing + API routes |
+| Frontend | Next.js 16 App Router + TailwindCSS | File-based routing + API routes |
+| Auth | Clerk | User management, OAuth |
+| Database | PostgreSQL (Neon) + Drizzle ORM | Serverless Postgres, interview history |
 | Voice UI | Web Audio API + MediaRecorder | Mic capture, PCM16 encoding, audio playback |
-| Bridge Server | Node.js + Express + `ws` | Raw WebSocket (no Socket.io — we're relaying binary audio) |
-| Persistent Storage | PostgreSQL + Drizzle ORM | Interview history, final reports
-| Cloud LLM (eval) | Gemini | pre interview prep |
-| Cloud LLM (voice) | Gemini Multimodal Live API | Live interview |
-| Cloud LLM (eval) | Gemini chat | Interruption quality eval |
-| PDF Parsing | pdf-parse | Resume extraction |
-| GitHub | @octokit/rest | Architectural skeleton fetching |
-| Report PDF | Puppeteer | Render report page → PDF download |
+| Cloud LLM (analysis) | Gemini 2.5 Flash (`@google/genai`) | Pre-interview report generation |
+| Cloud LLM (voice) | Gemini Multimodal Live API | Live interview, direct browser WebSocket |
+| PDF Parsing | `unpdf` | Resume text extraction |
+| GitHub | `@octokit/rest` | Profile + repo analysis |
 
 **Port Map:**
-- `:3000` — Next.js
-- `:3001` — Bridge Server
+- `:3000` — Next.js (dev + API)
 
 ---
 
-<!-- ## 4. Documentation Shards (Cross-References)
+## 4. Database Schema (Drizzle ORM + Neon)
 
-To prevent context rot, the detailed implementation logic has been sharded into the following files:
+```
+User
+├── id (uuid, PK)
+├── clerkId (unique)
+├── name
+├── email (unique)
+├── githubProfile
+└── createdAt
 
-- **[SCHEMAS.md](./SCHEMAS.md)**: Single source of truth for all Redis keys, Zod schemas, Candidate Profile JSON, and Report JSON structures.
-- **[PHASE_1_INGESTION.md](./PHASE_1_INGESTION.md)**: Resume parsing, GitHub skeleton fetcher, Ollama context builder, system prompt builder, API routes, and edge cases.
-- **[PHASE_2_BRIDGE.md](./PHASE_2_BRIDGE.md)**: Bridge server, Director, round transitions, session state, and audio relay.
-- **[PHASE_2_INTERRUPTION.md](./PHASE_2_INTERRUPTION.md)**: The heuristic Interruption Engine state machine.
-- **[PHASE_3_REPORT.md](./PHASE_3_REPORT.md)**: Report generator, Ollama prompt, background worker, timeout logic.
-- **[FRONTEND.md](./FRONTEND.md)**: Frontend pages, hooks, components, Web Audio pipeline, UI status states.
+InterviewPreset
+├── id (uuid, PK)
+├── userId → User.id (FK)
+├── jobDescription
+├── resumeLocation
+├── targetRole
+└── createdAt
 
---- -->
+InterviewSessions
+├── id (uuid, PK)
+├── presetId → InterviewPreset.id (FK)
+├── audioLocation (nullable)
+├── preInterviewReport (jsonb, nullable)
+├── postInterviewReport (jsonb, nullable)
+├── systemPrompt (nullable)
+└── createdAt
+```
 
-## 4. Critical Edge Cases & Failure Modes
+---
+
+## 5. Pre-Interview Pipeline (Phase 1 — ✅ COMPLETE)
+
+| Step | Module | Status |
+|------|--------|--------|
+| Resume parsing | `lib/pre-interview/resumeParser.js` (unpdf) | ✅ Done |
+| GitHub profile analysis | `lib/pre-interview/githubAnalyzer.js` (@octokit/rest) | ✅ Done |
+| Report generation | `lib/pre-interview/reportGenerator.js` (Gemini 2.5 Flash) | ✅ Done |
+| System prompt building | `lib/pre-interview/systemPromptBuilder.js` | ✅ Done |
+| API route | `app/api/prepare/route.js` | ✅ Done |
+| Dashboard UI / form | `app/dashboard/page.js` | ✅ Done |
+
+---
+
+## 6. Live Interview (Phase 2 — 🔶 IN PROGRESS)
+
+| Step | Module | Status |
+|------|--------|--------|
+| Interview room UI | `app/interview/[id]/page.js` | ✅ Done |
+| Gemini Live client | `lib/gemini-live.js` | ✅ Done |
+| Ephemeral token API | `app/api/gemini-token/route.js` | ✅ Done |
+| Wire session system prompt to Gemini Live | — | ❌ Not started |
+| Live transcript display | Interview room side panel | ✅ Done |
+| Mic/camera controls | Interview room control bar | ✅ Done |
+
+---
+
+## 7. Post-Interview Report (Phase 3 — ❌ NOT STARTED)
+
+| Step | Module | Status |
+|------|--------|--------|
+| Transcript processing API | `app/api/process-transcript/route.js` | ❌ Placeholder |
+| Report generation (Gemini) | — | ❌ Not started |
+| Reports page UI | `app/reports/page.js` | ❌ Placeholder |
+| History page | — | ❌ Not started |
+
+---
+
+## 8. Critical Edge Cases & Failure Modes
 
 | Scenario | Handling |
 |----------|---------|
 | PDF has no extractable text (scanned) | Detect empty string after parse → surface error: "Your PDF appears to be a scanned image. Please upload a text-based PDF." |
-| GitHub profile has 0 public repos | Proceed with resume + JD only. Note in profile: "No public repos found — project questions will be based on resume only." |
-| GitHub profile is private | Same as above |
-| Gemini API key invalid/expired | Bridge server catches 401 on WS open → sends error to browser → show "Interview engine unavailable. Check API key." |
-| Gemini rate limit | 429 on WS connect → retry once after 5s → if fails, surface to user |
-| Microphone permission denied | `getUserMedia` throws → show persistent banner: "Microphone access is required. Please allow it in your browser settings." |
-| Candidate doesn't speak for >60s | VAD silence → bridge detects no speech events → send `{ type: 'idle_warning' }` → UI shows "Are you still there?" |
-| Interview exceeds 60 minutes | Force end: bridge sends closing prompt injection + `interview_complete` event |
+| GitHub profile has 0 public repos | Proceed with resume + JD only. Note in profile. |
+| GitHub profile is private | Same as above — non-fatal, continues without GitHub data |
+| Gemini API key invalid/expired | Catch error → surface to user |
+| Microphone permission denied | `getUserMedia` throws → show error message |
+| Candidate doesn't speak for >60s | Planned: VAD silence detection |
+| Interview exceeds 60 minutes | Planned: force end with closing prompt |

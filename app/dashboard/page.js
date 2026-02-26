@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { useUser } from '@clerk/nextjs';
 import { saveUser } from '@/app/actions/saveUser';
 import { useRouter } from 'next/navigation';
-import { Paperclip, Link as LinkIcon, Clipboard, Check, PlayCircle, Zap, Clock, Lock, List, Loader2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Paperclip, Link as LinkIcon, Clipboard, Check, PlayCircle, Zap, Clock, Lock, List, Loader2, AlertCircle, ChevronDown, ChevronUp, RotateCcw, Plus } from 'lucide-react';
 
 export default function Dashboard() {
     const { user, isLoaded } = useUser();
@@ -23,6 +23,10 @@ export default function Dashboard() {
     const [report, setReport] = useState(null);
     const [apiError, setApiError] = useState(null);
     const [showReport, setShowReport] = useState(false);
+    const [presets, setPresets] = useState([]);
+    const [selectedPresetId, setSelectedPresetId] = useState(null); // null = new preset
+    const [presetsOpen, setPresetsOpen] = useState(false);
+    const [loadingPresets, setLoadingPresets] = useState(true);
 
     const isReady = !!sessionId;
 
@@ -38,6 +42,24 @@ export default function Dashboard() {
         }
     }, [isLoaded, user]);
 
+    // Fetch saved presets on mount
+    useEffect(() => {
+        async function fetchPresets() {
+            try {
+                const res = await fetch('/api/presets');
+                if (res.ok) {
+                    const data = await res.json();
+                    setPresets(data.presets || []);
+                }
+            } catch (err) {
+                console.error('Failed to fetch presets:', err);
+            } finally {
+                setLoadingPresets(false);
+            }
+        }
+        if (isLoaded && user) fetchPresets();
+    }, [isLoaded, user]);
+
     const resume = watch('resume');
     const githubUrl = watch('githubUrl');
 
@@ -49,10 +71,20 @@ export default function Dashboard() {
 
         try {
             const formData = new FormData();
-            if (data.resume?.[0]) formData.append('resume', data.resume[0]);
-            formData.append('githubUrl', data.githubUrl || '');
-            formData.append('jobDescription', data.jobDescription);
-            formData.append('targetRole', data.role);
+
+            if (selectedPresetId) {
+                // Reusing an existing preset
+                formData.append('presetId', selectedPresetId);
+                // Still send resume and github if provided (for fresh analysis)
+                if (data.resume?.[0]) formData.append('resume', data.resume[0]);
+                formData.append('githubUrl', data.githubUrl || '');
+            } else {
+                // New preset — all fields required
+                if (data.resume?.[0]) formData.append('resume', data.resume[0]);
+                formData.append('githubUrl', data.githubUrl || '');
+                formData.append('jobDescription', data.jobDescription);
+                formData.append('targetRole', data.role);
+            }
 
             const res = await fetch('/api/prepare', {
                 method: 'POST',
@@ -67,6 +99,13 @@ export default function Dashboard() {
 
             setSessionId(result.sessionId);
             setReport(result.report);
+
+            // Refresh presets list after successful preparation
+            const presetsRes = await fetch('/api/presets');
+            if (presetsRes.ok) {
+                const presetsData = await presetsRes.json();
+                setPresets(presetsData.presets || []);
+            }
         } catch (err) {
             console.error('Prepare failed:', err);
             setApiError(err.message);
@@ -74,6 +113,8 @@ export default function Dashboard() {
             setPreparing(false);
         }
     };
+
+    const selectedPreset = presets.find(p => p.id === selectedPresetId);
 
     return (
         <div className="min-h-screen bg-mongodb-bg text-white font-sans selection:bg-mongodb-neon selection:text-mongodb-bg flex flex-col relative pb-36">
@@ -107,88 +148,209 @@ export default function Dashboard() {
                                     </svg>
                                     <h3 className="text-2xl font-bold text-gray-100">Your Materials</h3>
                                 </div>
-                                {isReady ?
-                                    <span className="text-[10px] font-mono text-mongodb-neon/50 border border-mongodb-neon/20 px-2 py-1 rounded bg-mongodb-neon/5 uppercase tracking-widest transition-colors hover:bg-mongodb-neon/10">
-                                        <button type="button" onClick={() => {
-                                            resetForm();
-                                            setSessionId(null);
-                                            setReport(null);
-                                            setApiError(null);
-                                        }}>
-                                            Reset
+                                {isReady ? (
+                                    <button type="button" onClick={() => {
+                                        resetForm();
+                                        setSessionId(null);
+                                        setReport(null);
+                                        setApiError(null);
+                                    }} className="text-[10px] font-mono text-mongodb-neon/50 border border-mongodb-neon/20 px-2 py-1 rounded bg-mongodb-neon/5 uppercase tracking-widest transition-colors hover:bg-mongodb-neon/10 flex items-center gap-1">
+                                        <RotateCcw size={10} /> Reset
+                                    </button>
+                                ) : (
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPresetsOpen(!presetsOpen)}
+                                            className="text-[10px] font-mono text-mongodb-neon/60 border border-mongodb-neon/20 px-2.5 py-1.5 rounded-lg bg-mongodb-neon/5 uppercase tracking-widest transition-all hover:bg-mongodb-neon/10 hover:border-mongodb-neon/40 flex items-center gap-1.5"
+                                        >
+                                            {selectedPresetId ? (
+                                                <><RotateCcw size={10} /> Saved Preset</>
+                                            ) : (
+                                                <><Plus size={10} /> New Preset</>
+                                            )}
+                                            <ChevronDown size={10} className={`transition-transform ${presetsOpen ? 'rotate-180' : ''}`} />
                                         </button>
-                                    </span>
-                                    :
-                                    <span className="text-[10px] font-mono text-mongodb-neon/50 border border-mongodb-neon/20 px-2 py-1 rounded bg-mongodb-neon/5 uppercase tracking-widest">
-                                        Config-Active
-                                    </span>
-                                }
+
+                                        {presetsOpen && (
+                                            <div className="absolute right-0 top-full mt-2 w-72 bg-mongodb-card border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+                                                {/* New preset option */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedPresetId(null);
+                                                        resetForm();
+                                                        setPresetsOpen(false);
+                                                        setReport(null);
+                                                        setSessionId(null);
+                                                    }}
+                                                    className={`w-full text-left px-4 py-3 text-sm flex items-center gap-2 transition-colors ${!selectedPresetId ? 'bg-mongodb-neon/10 text-mongodb-neon' : 'text-gray-300 hover:bg-gray-800'}`}
+                                                >
+                                                    <Plus size={14} />
+                                                    <span className="font-medium">New Preset</span>
+                                                </button>
+
+                                                {presets.length > 0 && (
+                                                    <div className="border-t border-gray-800">
+                                                        <span className="text-[9px] text-gray-500 uppercase tracking-widest px-4 py-2 block font-bold">Saved Presets</span>
+                                                        {presets.map(p => (
+                                                            <button
+                                                                type="button"
+                                                                key={p.id}
+                                                                onClick={() => {
+                                                                    setSelectedPresetId(p.id);
+                                                                    setPresetsOpen(false);
+                                                                    // Load the preset's latest report and session into the Interview Plan panel
+                                                                    if (p.latestReport) {
+                                                                        setReport(p.latestReport);
+                                                                    }
+                                                                    if (p.latestSessionId) {
+                                                                        setSessionId(p.latestSessionId);
+                                                                    }
+                                                                }}
+                                                                className={`w-full text-left px-4 py-3 flex items-center justify-between transition-colors ${selectedPresetId === p.id ? 'bg-mongodb-neon/10' : 'hover:bg-gray-800'}`}
+                                                            >
+                                                                <div className="flex flex-col">
+                                                                    <span className={`text-sm font-medium ${selectedPresetId === p.id ? 'text-mongodb-neon' : 'text-gray-200'}`}>{p.targetRole}</span>
+                                                                    <span className="text-[10px] text-gray-500 font-mono mt-0.5">
+                                                                        {new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                                    </span>
+                                                                </div>
+                                                                <span className="text-[10px] font-mono text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">
+                                                                    {p.sessionCount} session{p.sessionCount !== 1 ? 's' : ''}
+                                                                </span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {loadingPresets && (
+                                                    <div className="px-4 py-3 flex items-center gap-2 text-gray-500 text-xs">
+                                                        <Loader2 size={12} className="animate-spin" /> Loading...
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Material Mini-Cards */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                                 {/* Resume */}
-                                <div className="p-5 rounded-2xl border border-gray-800 bg-gray-900/40 hover:bg-gray-800/60 transition-all group">
+                                <div className={`p-5 rounded-2xl border transition-all group ${selectedPresetId ? 'border-mongodb-neon/20 bg-mongodb-neon/5' : 'border-gray-800 bg-gray-900/40 hover:bg-gray-800/60'}`}>
                                     <div className="flex items-center justify-between mb-3">
-                                        <div className="p-2 bg-gray-800 rounded-lg group-hover:bg-gray-700 transition-colors">
-                                            <Paperclip size={18} className="text-gray-400" />
+                                        <div className={`p-2 rounded-lg transition-colors ${selectedPresetId ? 'bg-mongodb-neon/10' : 'bg-gray-800 group-hover:bg-gray-700'}`}>
+                                            <Paperclip size={18} className={selectedPresetId ? 'text-mongodb-neon' : 'text-gray-400'} />
                                         </div>
-                                        {resume && resume.length > 0 ? <Check size={20} strokeWidth={3} className="text-mongodb-neon drop-shadow-[0_0_8px_rgba(0,237,100,0.5)]" /> : null}
+                                        {(selectedPresetId || (resume && resume.length > 0)) && (
+                                            <Check size={20} strokeWidth={3} className="text-mongodb-neon drop-shadow-[0_0_8px_rgba(0,237,100,0.5)]" />
+                                        )}
                                     </div>
-                                    <span className="font-medium text-sm text-gray-300 group-hover:text-white transition-colors block">Upload Resume PDF</span>
-                                    <input type="file" {...register('resume', { required: 'Resume is required' })} className="w-full bg-transparent border-b border-gray-700 text-xs text-mongodb-neon/90 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-600 transition-colors file:hidden" />
-                                    {errors.resume && <span className="text-red-500 text-xs mt-1 block px-1">{errors.resume.message}</span>}
+                                    {selectedPresetId ? (
+                                        <>
+                                            <span className="font-medium text-sm text-mongodb-neon block">Resume on File</span>
+                                            <span className="text-[10px] text-gray-500 mt-1 block">Upload new to re-analyze (optional)</span>
+                                            <input type="file" {...register('resume')} className="w-full bg-transparent border-b border-gray-700/50 text-xs text-gray-500 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-600 transition-colors file:hidden mt-1" />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="font-medium text-sm text-gray-300 group-hover:text-white transition-colors block">Upload Resume PDF</span>
+                                            <input type="file" {...register('resume', { required: 'Resume is required' })} className="w-full bg-transparent border-b border-gray-700 text-xs text-mongodb-neon/90 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-600 transition-colors file:hidden" />
+                                            {errors.resume && <span className="text-red-500 text-xs mt-1 block px-1">{errors.resume.message}</span>}
+                                        </>
+                                    )}
                                 </div>
 
                                 {/* GitHub */}
-                                <div className="p-5 rounded-2xl border border-gray-800 bg-gray-900/40 hover:bg-gray-800/60 transition-all group flex flex-col justify-between">
+                                <div className={`p-5 rounded-2xl border transition-all group flex flex-col justify-between ${selectedPresetId ? 'border-mongodb-neon/20 bg-mongodb-neon/5' : 'border-gray-800 bg-gray-900/40 hover:bg-gray-800/60'}`}>
                                     <div className="flex items-center justify-between mb-2">
-                                        <div className="p-2 bg-gray-800 rounded-lg group-hover:bg-gray-700 transition-colors">
-                                            <LinkIcon size={18} className="text-gray-400" />
+                                        <div className={`p-2 rounded-lg transition-colors ${selectedPresetId ? 'bg-mongodb-neon/10' : 'bg-gray-800 group-hover:bg-gray-700'}`}>
+                                            <LinkIcon size={18} className={selectedPresetId ? 'text-mongodb-neon' : 'text-gray-400'} />
                                         </div>
-                                        {githubUrl ? <Check size={20} strokeWidth={3} className="text-mongodb-neon drop-shadow-[0_0_8px_rgba(0,237,100,0.5)]" /> : null}
+                                        {(selectedPresetId || githubUrl) && (
+                                            <Check size={20} strokeWidth={3} className="text-mongodb-neon drop-shadow-[0_0_8px_rgba(0,237,100,0.5)]" />
+                                        )}
                                     </div>
-                                    <label className="font-medium text-sm text-gray-300 group-hover:text-white transition-colors block mb-1">GitHub Profile URL</label>
-                                    <input
-                                        type="url"
-                                        {...register('githubUrl', { required: 'GitHub URL is required' })}
-                                        placeholder="https://github.com/..."
-                                        className="w-full bg-transparent border-b border-gray-700 text-xs text-mongodb-neon/90 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-600 transition-colors"
-                                    />
-                                    {errors.githubUrl && <span className="text-red-500 text-xs mt-1 block px-1">{errors.githubUrl.message}</span>}
+                                    {selectedPresetId ? (
+                                        <>
+                                            <span className="font-medium text-sm text-mongodb-neon block">GitHub on File</span>
+                                            <span className="text-[10px] text-gray-500 mt-1 block">Update URL to re-analyze (optional)</span>
+                                            <input
+                                                type="url"
+                                                {...register('githubUrl')}
+                                                placeholder="https://github.com/..."
+                                                className="w-full bg-transparent border-b border-gray-700/50 text-xs text-gray-500 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-700 transition-colors mt-1"
+                                            />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <label className="font-medium text-sm text-gray-300 group-hover:text-white transition-colors block mb-1">GitHub Profile URL</label>
+                                            <input
+                                                type="url"
+                                                {...register('githubUrl', { required: 'GitHub URL is required' })}
+                                                placeholder="https://github.com/..."
+                                                className="w-full bg-transparent border-b border-gray-700 text-xs text-mongodb-neon/90 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-600 transition-colors"
+                                            />
+                                            {errors.githubUrl && <span className="text-red-500 text-xs mt-1 block px-1">{errors.githubUrl.message}</span>}
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
-                            {/* Job Description (full width) */}
-                            <div className="rounded-2xl border border-dashed border-gray-800/60 bg-gray-900/20 hover:bg-gray-800/40 transition-all group overflow-hidden focus-within:border-mongodb-neon focus-within:bg-gray-800/40 focus-within:border-solid">
-                                <div className="flex items-center gap-2 px-5 pt-4 pb-2">
-                                    <div className="p-2 bg-gray-800/50 rounded-lg">
-                                        <Clipboard size={18} className="text-gray-500 group-focus-within:text-mongodb-neon transition-colors" />
+                            {selectedPreset ? (
+                                /* ── Selected Preset Info ── */
+                                <div className="rounded-2xl border border-mongodb-neon/20 bg-mongodb-neon/5 p-5 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-mongodb-neon uppercase tracking-widest">Using Saved Preset</span>
+                                        <span className="text-[10px] font-mono text-gray-500">
+                                            {selectedPreset.sessionCount} previous session{selectedPreset.sessionCount !== 1 ? 's' : ''}
+                                        </span>
                                     </div>
-                                    <span className="font-medium text-[15px] text-gray-400 group-focus-within:text-gray-300 transition-colors block">Paste Job Description</span>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-sm font-semibold text-gray-100">{selectedPreset.targetRole}</span>
+                                        <span className="text-[10px] text-gray-500 font-mono">
+                                            Created {new Date(selectedPreset.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 line-clamp-3">
+                                        {selectedPreset.jobDescription}
+                                    </p>
                                 </div>
-                                <textarea
-                                    {...register('jobDescription', { required: 'Job description is required' })}
-                                    placeholder="Enter requirements, preferred qualifications..."
-                                    className="w-full bg-transparent text-gray-300 px-5 pb-5 pt-1 min-h-[120px] focus:outline-none resize-y text-sm placeholder-gray-600 font-sans"
-                                />
-                                {errors.jobDescription && <span className="text-red-500 text-xs px-5 pb-3 block">{errors.jobDescription.message}</span>}
-                            </div>
+                            ) : (
+                                <>
+                                    {/* Job Description (full width) */}
+                                    <div className="rounded-2xl border border-dashed border-gray-800/60 bg-gray-900/20 hover:bg-gray-800/40 transition-all group overflow-hidden focus-within:border-mongodb-neon focus-within:bg-gray-800/40 focus-within:border-solid">
+                                        <div className="flex items-center gap-2 px-5 pt-4 pb-2">
+                                            <div className="p-2 bg-gray-800/50 rounded-lg">
+                                                <Clipboard size={18} className="text-gray-500 group-focus-within:text-mongodb-neon transition-colors" />
+                                            </div>
+                                            <span className="font-medium text-[15px] text-gray-400 group-focus-within:text-gray-300 transition-colors block">Paste Job Description</span>
+                                        </div>
+                                        <textarea
+                                            {...register('jobDescription', { required: 'Job description is required' })}
+                                            placeholder="Enter requirements, preferred qualifications..."
+                                            className="w-full bg-transparent text-gray-300 px-5 pb-5 pt-1 min-h-[120px] focus:outline-none resize-y text-sm placeholder-gray-600 font-sans"
+                                        />
+                                        {errors.jobDescription && <span className="text-red-500 text-xs px-5 pb-3 block">{errors.jobDescription.message}</span>}
+                                    </div>
 
-                            {/* Target Role */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold text-gray-300">Target Role</label>
-                                <select
-                                    {...register('role', { required: 'Role is required' })}
-                                    className="w-full bg-gray-900/50 border border-gray-800 rounded-xl text-gray-100 py-3.5 px-4 focus:outline-none focus:ring-1 focus:ring-mongodb-neon focus:border-mongodb-neon transition-all cursor-pointer hover:border-gray-700 hover:bg-gray-800/50"
-                                >
-                                    <option className="bg-gray-900 text-gray-100">Senior Backend Engineer</option>
-                                    <option className="bg-gray-900 text-gray-100">Frontend Developer</option>
-                                    <option className="bg-gray-900 text-gray-100">Full-Stack Engineer</option>
-                                    <option className="bg-gray-900 text-gray-100">DevOps Engineer</option>
-                                </select>
-                                {errors.role && <span className="text-red-500 text-xs mt-1 block px-1">{errors.role.message}</span>}
-                            </div>
+                                    {/* Target Role */}
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-semibold text-gray-300">Target Role</label>
+                                        <select
+                                            {...register('role', { required: 'Role is required' })}
+                                            className="w-full bg-gray-900/50 border border-gray-800 rounded-xl text-gray-100 py-3.5 px-4 focus:outline-none focus:ring-1 focus:ring-mongodb-neon focus:border-mongodb-neon transition-all cursor-pointer hover:border-gray-700 hover:bg-gray-800/50"
+                                        >
+                                            <option className="bg-gray-900 text-gray-100">Senior Backend Engineer</option>
+                                            <option className="bg-gray-900 text-gray-100">Frontend Developer</option>
+                                            <option className="bg-gray-900 text-gray-100">Full-Stack Engineer</option>
+                                            <option className="bg-gray-900 text-gray-100">DevOps Engineer</option>
+                                        </select>
+                                        {errors.role && <span className="text-red-500 text-xs mt-1 block px-1">{errors.role.message}</span>}
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         {/* Error Message */}

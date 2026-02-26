@@ -27,6 +27,8 @@ export async function GET() {
                 id: interviewPresets.id,
                 targetRole: interviewPresets.targetRole,
                 jobDescription: interviewPresets.jobDescription,
+                resumeName: interviewPresets.resumeName,
+                githubUrl: interviewPresets.githubUrl,
                 createdAt: interviewPresets.createdAt,
                 sessionCount: sql`(
                     SELECT COUNT(*)::int

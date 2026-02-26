@@ -124,6 +124,8 @@ export async function POST(req) {
                     userId: dbUser.id,
                     jobDescription: jd,
                     resumeLocation: "inline",
+                    resumeName: resumeFile?.name || null,
+                    githubUrl: profileUrl || null,
                     targetRole: role,
                 })
                 .returning();

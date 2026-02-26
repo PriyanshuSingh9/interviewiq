@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { useForm } from 'react-hook-form';
 import { useUser } from '@clerk/nextjs';
@@ -11,7 +11,7 @@ import { Paperclip, Link as LinkIcon, Clipboard, Check, PlayCircle, Zap, Clock, 
 export default function Dashboard() {
     const { user, isLoaded } = useUser();
     const router = useRouter();
-    const { register, handleSubmit, watch, reset: resetForm, formState: { errors } } = useForm({
+    const { register, handleSubmit, watch, reset: resetForm, setValue, formState: { errors } } = useForm({
         defaultValues: {
             role: 'Senior Backend Engineer',
             githubUrl: '',
@@ -24,9 +24,11 @@ export default function Dashboard() {
     const [apiError, setApiError] = useState(null);
     const [showReport, setShowReport] = useState(false);
     const [presets, setPresets] = useState([]);
-    const [selectedPresetId, setSelectedPresetId] = useState(null); // null = new preset
+    const [selectedPresetId, setSelectedPresetId] = useState(null);
     const [presetsOpen, setPresetsOpen] = useState(false);
     const [loadingPresets, setLoadingPresets] = useState(true);
+    const [pickedFileName, setPickedFileName] = useState(null); // tracks newly picked file name
+    const hiddenFileInputRef = useRef(null);
 
     const isReady = !!sessionId;
 
@@ -183,6 +185,7 @@ export default function Dashboard() {
                                                         setPresetsOpen(false);
                                                         setReport(null);
                                                         setSessionId(null);
+                                                        setPickedFileName(null);
                                                     }}
                                                     className={`w-full text-left px-4 py-3 text-sm flex items-center gap-2 transition-colors ${!selectedPresetId ? 'bg-mongodb-neon/10 text-mongodb-neon' : 'text-gray-300 hover:bg-gray-800'}`}
                                                 >
@@ -200,6 +203,12 @@ export default function Dashboard() {
                                                                 onClick={() => {
                                                                     setSelectedPresetId(p.id);
                                                                     setPresetsOpen(false);
+                                                                    setPickedFileName(null);
+                                                                    // Clear any previously picked resume file from the form
+                                                                    setValue('resume', null);
+                                                                    if (hiddenFileInputRef.current) hiddenFileInputRef.current.value = '';
+                                                                    // Pre-fill GitHub URL from preset
+                                                                    setValue('githubUrl', p.githubUrl || '');
                                                                     // Load the preset's latest report and session into the Interview Plan panel
                                                                     if (p.latestReport) {
                                                                         setReport(p.latestReport);
@@ -243,20 +252,50 @@ export default function Dashboard() {
                                         <div className={`p-2 rounded-lg transition-colors ${selectedPresetId ? 'bg-mongodb-neon/10' : 'bg-gray-800 group-hover:bg-gray-700'}`}>
                                             <Paperclip size={18} className={selectedPresetId ? 'text-mongodb-neon' : 'text-gray-400'} />
                                         </div>
-                                        {(selectedPresetId || (resume && resume.length > 0)) && (
+                                        {((selectedPreset?.resumeName) || (resume && resume.length > 0)) && (
                                             <Check size={20} strokeWidth={3} className="text-mongodb-neon drop-shadow-[0_0_8px_rgba(0,237,100,0.5)]" />
                                         )}
                                     </div>
                                     {selectedPresetId ? (
                                         <>
                                             <span className="font-medium text-sm text-mongodb-neon block">Resume on File</span>
-                                            <span className="text-[10px] text-gray-500 mt-1 block">Upload new to re-analyze (optional)</span>
-                                            <input type="file" {...register('resume')} className="w-full bg-transparent border-b border-gray-700/50 text-xs text-gray-500 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-600 transition-colors file:hidden mt-1" />
+                                            {/* Hidden real file input wired to react-hook-form */}
+                                            <input
+                                                type="file"
+                                                accept=".pdf"
+                                                {...register('resume')}
+                                                ref={(e) => {
+                                                    register('resume').ref(e);
+                                                    hiddenFileInputRef.current = e;
+                                                }}
+                                                onChange={(e) => {
+                                                    register('resume').onChange(e);
+                                                    const newName = e.target.files?.[0]?.name || null;
+                                                    setPickedFileName(newName);
+                                                    // New file picked — switch to new interview
+                                                    if (newName && selectedPresetId) {
+                                                        setSelectedPresetId(null);
+                                                        setSessionId(null);
+                                                        setReport(null);
+                                                    }
+                                                }}
+                                                className="hidden"
+                                            />
+                                            {/* Custom clickable row */}
+                                            <button
+                                                type="button"
+                                                onClick={() => hiddenFileInputRef.current?.click()}
+                                                className="mt-1 w-full flex items-center gap-2 border-b border-gray-700/50 py-1 text-left hover:border-mongodb-neon/50 transition-colors group/file"
+                                            >
+                                                <span className="text-[10px] font-mono text-gray-400 truncate group-hover/file:text-gray-200 transition-colors">
+                                                    📄 {pickedFileName || selectedPreset?.resumeName || 'Click to choose a file'}
+                                                </span>
+                                            </button>
                                         </>
                                     ) : (
                                         <>
                                             <span className="font-medium text-sm text-gray-300 group-hover:text-white transition-colors block">Upload Resume PDF</span>
-                                            <input type="file" {...register('resume', { required: 'Resume is required' })} className="w-full bg-transparent border-b border-gray-700 text-xs text-mongodb-neon/90 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-600 transition-colors file:hidden" />
+                                            <input type="file" accept=".pdf" {...register('resume', { required: 'Resume is required' })} className="w-full bg-transparent border-b border-gray-700 text-xs text-mongodb-neon/90 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-600 transition-colors file:hidden" />
                                             {errors.resume && <span className="text-red-500 text-xs mt-1 block px-1">{errors.resume.message}</span>}
                                         </>
                                     )}
@@ -268,19 +307,31 @@ export default function Dashboard() {
                                         <div className={`p-2 rounded-lg transition-colors ${selectedPresetId ? 'bg-mongodb-neon/10' : 'bg-gray-800 group-hover:bg-gray-700'}`}>
                                             <LinkIcon size={18} className={selectedPresetId ? 'text-mongodb-neon' : 'text-gray-400'} />
                                         </div>
-                                        {(selectedPresetId || githubUrl) && (
+                                        {(selectedPreset?.githubUrl || githubUrl) && (
                                             <Check size={20} strokeWidth={3} className="text-mongodb-neon drop-shadow-[0_0_8px_rgba(0,237,100,0.5)]" />
                                         )}
                                     </div>
                                     {selectedPresetId ? (
                                         <>
                                             <span className="font-medium text-sm text-mongodb-neon block">GitHub on File</span>
-                                            <span className="text-[10px] text-gray-500 mt-1 block">Update URL to re-analyze (optional)</span>
                                             <input
                                                 type="url"
                                                 {...register('githubUrl')}
                                                 placeholder="https://github.com/..."
-                                                className="w-full bg-transparent border-b border-gray-700/50 text-xs text-gray-500 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-700 transition-colors mt-1"
+                                                onChange={(e) => {
+                                                    register('githubUrl').onChange(e);
+                                                    // If user changed the URL from the preset value, switch to new interview
+                                                    if (selectedPresetId && e.target.value !== (selectedPreset?.githubUrl || '')) {
+                                                        setSelectedPresetId(null);
+                                                        setSessionId(null);
+                                                        setReport(null);
+                                                        // Clear stale resume file from form
+                                                        setValue('resume', null);
+                                                        if (hiddenFileInputRef.current) hiddenFileInputRef.current.value = '';
+                                                        setPickedFileName(null);
+                                                    }
+                                                }}
+                                                className="w-full bg-transparent border-b border-gray-700/50 text-xs text-mongodb-neon/70 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-700 transition-colors mt-1"
                                             />
                                         </>
                                     ) : (

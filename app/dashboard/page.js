@@ -633,31 +633,7 @@ export default function Dashboard() {
                                     </div>
                                 )}
 
-                                {/* Interview Strategy */}
-                                {report.interviewPlan && (
-                                    <div className="p-5 rounded-xl bg-gray-900/30 border border-gray-800 space-y-3">
-                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Interview Strategy</span>
-                                        {report.interviewPlan.suggestedOpeningQuestion && (
-                                            <div className="p-3 rounded-lg bg-mongodb-neon/5 border border-mongodb-neon/10">
-                                                <span className="text-[9px] font-bold text-mongodb-neon uppercase block mb-1">Opening Question</span>
-                                                <p className="text-xs text-gray-300 italic">"{report.interviewPlan.suggestedOpeningQuestion}"</p>
-                                            </div>
-                                        )}
-                                        {report.interviewPlan.redFlagsToWatch?.length > 0 && (
-                                            <div>
-                                                <span className="text-[9px] font-bold text-red-400 uppercase block mb-1.5">Watch For</span>
-                                                <ul className="space-y-1">
-                                                    {report.interviewPlan.redFlagsToWatch.map((f, i) => (
-                                                        <li key={i} className="text-xs text-gray-400 flex items-start gap-2">
-                                                            <span className="text-red-400 mt-0.5">•</span>
-                                                            {f}
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+
                             </div>
                         </div>
                     </div>

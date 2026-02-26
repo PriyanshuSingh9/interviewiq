@@ -248,17 +248,20 @@ export default function Dashboard() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                                 {/* Resume */}
                                 <div className={`p-5 rounded-2xl border transition-all group ${selectedPresetId ? 'border-mongodb-neon/20 bg-mongodb-neon/5' : 'border-gray-800 bg-gray-900/40 hover:bg-gray-800/60'}`}>
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className={`p-2 rounded-lg transition-colors ${selectedPresetId ? 'bg-mongodb-neon/10' : 'bg-gray-800 group-hover:bg-gray-700'}`}>
+                                    {/* Header row: icon + label + check */}
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className={`p-2 rounded-lg shrink-0 transition-colors ${selectedPresetId ? 'bg-mongodb-neon/10' : 'bg-gray-800 group-hover:bg-gray-700'}`}>
                                             <Paperclip size={18} className={selectedPresetId ? 'text-mongodb-neon' : 'text-gray-400'} />
                                         </div>
+                                        <span className={`font-medium text-sm flex-1 ${selectedPresetId ? 'text-mongodb-neon' : 'text-gray-300 group-hover:text-white transition-colors'}`}>
+                                            {selectedPresetId ? 'Resume' : 'Upload Resume PDF'}
+                                        </span>
                                         {((selectedPreset?.resumeName) || (resume && resume.length > 0)) && (
-                                            <Check size={20} strokeWidth={3} className="text-mongodb-neon drop-shadow-[0_0_8px_rgba(0,237,100,0.5)]" />
+                                            <Check size={18} strokeWidth={3} className="text-mongodb-neon drop-shadow-[0_0_8px_rgba(0,237,100,0.5)] shrink-0" />
                                         )}
                                     </div>
                                     {selectedPresetId ? (
                                         <>
-                                            <span className="font-medium text-sm text-mongodb-neon block">Resume on File</span>
                                             {/* Hidden real file input wired to react-hook-form */}
                                             <input
                                                 type="file"
@@ -285,7 +288,7 @@ export default function Dashboard() {
                                             <button
                                                 type="button"
                                                 onClick={() => hiddenFileInputRef.current?.click()}
-                                                className="mt-1 w-full flex items-center gap-2 border-b border-gray-700/50 py-1 text-left hover:border-mongodb-neon/50 transition-colors group/file"
+                                                className="w-full flex items-center gap-2 border-b border-gray-700/50 py-1 text-left hover:border-mongodb-neon/50 transition-colors group/file"
                                             >
                                                 <span className="text-[10px] font-mono text-gray-400 truncate group-hover/file:text-gray-200 transition-colors">
                                                     📄 {pickedFileName || selectedPreset?.resumeName || 'Click to choose a file'}
@@ -294,7 +297,6 @@ export default function Dashboard() {
                                         </>
                                     ) : (
                                         <>
-                                            <span className="font-medium text-sm text-gray-300 group-hover:text-white transition-colors block">Upload Resume PDF</span>
                                             <input type="file" accept=".pdf" {...register('resume', { required: 'Resume is required' })} className="w-full bg-transparent border-b border-gray-700 text-xs text-mongodb-neon/90 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-600 transition-colors file:hidden" />
                                             {errors.resume && <span className="text-red-500 text-xs mt-1 block px-1">{errors.resume.message}</span>}
                                         </>
@@ -303,40 +305,38 @@ export default function Dashboard() {
 
                                 {/* GitHub */}
                                 <div className={`p-5 rounded-2xl border transition-all group flex flex-col justify-between ${selectedPresetId ? 'border-mongodb-neon/20 bg-mongodb-neon/5' : 'border-gray-800 bg-gray-900/40 hover:bg-gray-800/60'}`}>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className={`p-2 rounded-lg transition-colors ${selectedPresetId ? 'bg-mongodb-neon/10' : 'bg-gray-800 group-hover:bg-gray-700'}`}>
+                                    {/* Header row: icon + label + check */}
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className={`p-2 rounded-lg shrink-0 transition-colors ${selectedPresetId ? 'bg-mongodb-neon/10' : 'bg-gray-800 group-hover:bg-gray-700'}`}>
                                             <LinkIcon size={18} className={selectedPresetId ? 'text-mongodb-neon' : 'text-gray-400'} />
                                         </div>
+                                        <span className={`font-medium text-sm flex-1 ${selectedPresetId ? 'text-mongodb-neon' : 'text-gray-300 group-hover:text-white transition-colors'}`}>
+                                            {selectedPresetId ? 'GitHub' : 'GitHub Profile URL'}
+                                        </span>
                                         {(selectedPreset?.githubUrl || githubUrl) && (
-                                            <Check size={20} strokeWidth={3} className="text-mongodb-neon drop-shadow-[0_0_8px_rgba(0,237,100,0.5)]" />
+                                            <Check size={18} strokeWidth={3} className="text-mongodb-neon drop-shadow-[0_0_8px_rgba(0,237,100,0.5)] shrink-0" />
                                         )}
                                     </div>
                                     {selectedPresetId ? (
-                                        <>
-                                            <span className="font-medium text-sm text-mongodb-neon block">GitHub on File</span>
-                                            <input
-                                                type="url"
-                                                {...register('githubUrl')}
-                                                placeholder="https://github.com/..."
-                                                onChange={(e) => {
-                                                    register('githubUrl').onChange(e);
-                                                    // If user changed the URL from the preset value, switch to new interview
-                                                    if (selectedPresetId && e.target.value !== (selectedPreset?.githubUrl || '')) {
-                                                        setSelectedPresetId(null);
-                                                        setSessionId(null);
-                                                        setReport(null);
-                                                        // Clear stale resume file from form
-                                                        setValue('resume', null);
-                                                        if (hiddenFileInputRef.current) hiddenFileInputRef.current.value = '';
-                                                        setPickedFileName(null);
-                                                    }
-                                                }}
-                                                className="w-full bg-transparent border-b border-gray-700/50 text-xs text-mongodb-neon/70 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-700 transition-colors mt-1"
-                                            />
-                                        </>
+                                        <input
+                                            type="url"
+                                            {...register('githubUrl')}
+                                            placeholder="https://github.com/..."
+                                            onChange={(e) => {
+                                                register('githubUrl').onChange(e);
+                                                if (selectedPresetId && e.target.value !== (selectedPreset?.githubUrl || '')) {
+                                                    setSelectedPresetId(null);
+                                                    setSessionId(null);
+                                                    setReport(null);
+                                                    setValue('resume', null);
+                                                    if (hiddenFileInputRef.current) hiddenFileInputRef.current.value = '';
+                                                    setPickedFileName(null);
+                                                }
+                                            }}
+                                            className="w-full bg-transparent border-b border-gray-700/50 text-xs text-mongodb-neon/70 font-mono py-1 focus:outline-none focus:border-mongodb-neon placeholder-gray-700 transition-colors"
+                                        />
                                     ) : (
                                         <>
-                                            <label className="font-medium text-sm text-gray-300 group-hover:text-white transition-colors block mb-1">GitHub Profile URL</label>
                                             <input
                                                 type="url"
                                                 {...register('githubUrl', { required: 'GitHub URL is required' })}
@@ -694,18 +694,7 @@ export default function Dashboard() {
 
             {/* ── Floating Action Bar (Asymmetric Layout Footer Style) ── */}
             <div className="fixed bottom-0 left-0 right-0 p-3 bg-mongodb-bg/95 backdrop-blur-lg border-t border-gray-800 z-40">
-                <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-
-                    {/* Status Readout */}
-                    <div className="hidden md:flex flex-col border-l-2 border-gray-800 pl-4">
-                        <span className="text-gray-500 text-[9px] font-bold uppercase tracking-widest mb-0.5">Network Status</span>
-                        <div className="flex items-center gap-2">
-                            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isReady ? 'bg-mongodb-neon shadow-[0_0_6px_rgba(0,237,100,0.5)]' : preparing ? 'bg-yellow-500 shadow-[0_0_6px_rgba(234,179,8,0.5)]' : 'bg-gray-700'}`} />
-                            <span className={`${isReady ? 'text-mongodb-neon' : preparing ? 'text-yellow-500' : 'text-gray-500'} font-mono text-[11px] transition-colors`}>
-                                {preparing ? 'Processing...' : isReady ? 'System Ready' : 'Waiting For Inputs'}
-                            </span>
-                        </div>
-                    </div>
+                <div className="max-w-7xl mx-auto flex items-center justify-end gap-4">
 
                     {/* CTA Button */}
                     <button

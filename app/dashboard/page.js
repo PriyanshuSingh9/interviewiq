@@ -126,7 +126,7 @@ export default function Dashboard() {
 
                 {/* Page Header */}
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-4xl font-bold text-gray-100 tracking-tight">
+                    <h1 className="text-4xl font-serif tracking-tight text-gray-100">
                         Command Center <span className="text-mongodb-neon font-light">v3.0</span>
                     </h1>
                 </div>
@@ -138,7 +138,7 @@ export default function Dashboard() {
                     <form onSubmit={handleSubmit(onSubmit)} className="col-span-12 lg:col-span-7 bg-mongodb-card border border-gray-800 rounded-3xl p-8 flex flex-col justify-between min-h-[500px] shadow-2xl relative overflow-hidden hover:border-gray-700 transition-colors duration-300">
                         <div className="absolute top-0 left-0 w-full h-1 bg-line-to-r from-transparent via-mongodb-neon/30 to-transparent" />
 
-                        <div className="space-y-6">
+                        <div className="space-y-6 flex-1 flex flex-col">
                             {/* Card Header */}
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
@@ -146,7 +146,7 @@ export default function Dashboard() {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                                             d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                                     </svg>
-                                    <h3 className="text-2xl font-bold text-gray-100">Your Materials</h3>
+                                    <h3 className="text-2xl font-serif text-gray-100">Your Materials</h3>
                                 </div>
                                 {isReady ? (
                                     <button type="button" onClick={() => {
@@ -300,7 +300,7 @@ export default function Dashboard() {
 
                             {selectedPreset ? (
                                 /* ── Selected Preset Info ── */
-                                <div className="rounded-2xl border border-mongodb-neon/20 bg-mongodb-neon/5 p-5 space-y-3">
+                                <div className="rounded-2xl border border-mongodb-neon/20 bg-mongodb-neon/5 p-5 space-y-3 flex-1 flex flex-col">
                                     <div className="flex items-center justify-between">
                                         <span className="text-[10px] font-bold text-mongodb-neon uppercase tracking-widest">Using Saved Preset</span>
                                         <span className="text-[10px] font-mono text-gray-500">
@@ -308,12 +308,12 @@ export default function Dashboard() {
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <span className="text-sm font-semibold text-gray-100">{selectedPreset.targetRole}</span>
+                                        <span className="text-lg font-serif text-gray-100">{selectedPreset.targetRole}</span>
                                         <span className="text-[10px] text-gray-500 font-mono">
                                             Created {new Date(selectedPreset.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-gray-400 line-clamp-3">
+                                    <p className="text-sm text-gray-400 leading-relaxed">
                                         {selectedPreset.jobDescription}
                                     </p>
                                 </div>
@@ -395,7 +395,7 @@ export default function Dashboard() {
                     <div className="col-span-12 lg:col-span-5 bg-mongodb-card border border-gray-800 rounded-3xl p-8 flex flex-col min-h-[500px] shadow-2xl relative overflow-hidden">
                         <div className="flex items-center gap-3 mb-8">
                             <List className="w-6 h-6 text-mongodb-neon" />
-                            <h3 className="text-2xl font-bold text-gray-100">Interview Plan</h3>
+                            <h3 className="text-2xl font-serif text-gray-100">Interview Plan</h3>
                         </div>
 
                         {/* Loading state */}
@@ -422,15 +422,22 @@ export default function Dashboard() {
                             <>
                                 <div className="space-y-4 flex-1 overflow-y-auto">
                                     {/* Fit score */}
-                                    {report.fitAnalysis && (
-                                        <div className="p-4 rounded-xl bg-gray-900/30 border border-mongodb-neon/20">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-sm font-bold text-gray-100">Fit Score</span>
-                                                <span className="text-mongodb-neon font-mono font-bold text-lg">{report.fitAnalysis.fitScore}/100</span>
+                                    {report.fitAnalysis && (() => {
+                                        const score = report.fitAnalysis.fitScore;
+                                        const scoreColor = score >= 75 ? 'text-mongodb-neon' : score >= 50 ? 'text-yellow-400' : 'text-red-400';
+                                        const borderColor = score >= 75 ? 'border-mongodb-neon/20' : score >= 50 ? 'border-yellow-400/20' : 'border-red-400/20';
+                                        const bgColor = score >= 75 ? 'bg-mongodb-neon/5' : score >= 50 ? 'bg-yellow-400/5' : 'bg-red-400/5';
+                                        const glowColor = score >= 75 ? 'shadow-[0_0_15px_rgba(0,237,100,0.1)]' : score >= 50 ? 'shadow-[0_0_15px_rgba(250,204,21,0.1)]' : 'shadow-[0_0_15px_rgba(248,113,113,0.1)]';
+                                        return (
+                                            <div className={`p-4 rounded-xl bg-gray-900/30 border ${borderColor} ${bgColor} ${glowColor} transition-all`}>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-sm font-bold text-gray-100">Fit Score</span>
+                                                    <span className={`${scoreColor} font-mono font-bold text-lg`}>{score}/100</span>
+                                                </div>
+                                                <p className="text-gray-400 text-xs">{report.fitAnalysis.fitReasoning}</p>
                                             </div>
-                                            <p className="text-gray-400 text-xs">{report.fitAnalysis.fitReasoning}</p>
-                                        </div>
-                                    )}
+                                        );
+                                    })()}
 
                                     {/* Interview rounds */}
                                     {report.interviewPlan.rounds?.map((round, i) => (
@@ -454,21 +461,6 @@ export default function Dashboard() {
                                         </div>
                                     )}
 
-                                    {/* Collapsible full report */}
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowReport(!showReport)}
-                                        className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-200 transition-colors w-full py-2"
-                                    >
-                                        {showReport ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                                        {showReport ? 'Hide' : 'View'} Full Analysis
-                                    </button>
-
-                                    {showReport && (
-                                        <pre className="text-[10px] text-gray-500 font-mono bg-gray-900/50 p-4 rounded-xl overflow-auto max-h-[300px] border border-gray-800">
-                                            {JSON.stringify(report, null, 2)}
-                                        </pre>
-                                    )}
                                 </div>
 
                                 {/* Level calibration footer */}
@@ -488,6 +480,189 @@ export default function Dashboard() {
                         )}
                     </div>
                 </div>
+
+                {/* ── Full Analysis Section (Below Bento Grid) ── */}
+                {!preparing && report && (
+                    <div id="full-analysis" className="bg-mongodb-card border border-gray-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-transparent via-mongodb-neon/20 to-transparent" />
+
+                        <div className="mb-6">
+                            <h3 className="text-2xl font-serif text-gray-100">Full Analysis</h3>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                            {/* Left Column */}
+                            <div className="space-y-6">
+                                {/* Candidate Summary */}
+                                {report.candidateSummary && (
+                                    <div className="p-5 rounded-xl bg-gray-900/30 border border-gray-800 space-y-3">
+                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Candidate Summary</span>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-base font-serif text-gray-100">{report.candidateSummary.name}</span>
+                                            {report.candidateSummary.currentRole && (
+                                                <span className="text-[10px] font-mono text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">{report.candidateSummary.currentRole}</span>
+                                            )}
+                                        </div>
+                                        {report.candidateSummary.yearsExperience && (
+                                            <p className="text-xs text-gray-400">{report.candidateSummary.yearsExperience} experience</p>
+                                        )}
+                                        {report.candidateSummary.educationHighlight && (
+                                            <p className="text-xs text-gray-500">{report.candidateSummary.educationHighlight}</p>
+                                        )}
+                                        {report.candidateSummary.topSkills?.length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5 pt-1">
+                                                {report.candidateSummary.topSkills.map((skill, i) => (
+                                                    <span key={i} className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-mongodb-neon/10 text-mongodb-neon border border-mongodb-neon/20">{skill}</span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Skill Breakdown */}
+                                {report.fitAnalysis && (
+                                    <div className="p-5 rounded-xl bg-gray-900/30 border border-gray-800 space-y-4">
+                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Skill Breakdown</span>
+                                        {report.fitAnalysis.matchedSkills?.length > 0 && (
+                                            <div>
+                                                <span className="text-[10px] font-bold text-mongodb-neon uppercase block mb-2">Matched</span>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {report.fitAnalysis.matchedSkills.map((s, i) => (
+                                                        <span key={i} className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-mongodb-neon/10 text-mongodb-neon">{s}</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {report.fitAnalysis.missingSkills?.length > 0 && (
+                                            <div>
+                                                <span className="text-[10px] font-bold text-yellow-400 uppercase block mb-2">Gaps</span>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {report.fitAnalysis.missingSkills.map((s, i) => (
+                                                        <span key={i} className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-yellow-400/10 text-yellow-400">{s}</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {report.fitAnalysis.redFlags?.length > 0 && (
+                                            <div>
+                                                <span className="text-[10px] font-bold text-red-400 uppercase block mb-2">Red Flags</span>
+                                                <ul className="space-y-1.5">
+                                                    {report.fitAnalysis.redFlags.map((f, i) => (
+                                                        <li key={i} className="text-xs text-red-300/80 flex items-start gap-2">
+                                                            <AlertCircle size={12} className="mt-0.5 shrink-0 text-red-400" />
+                                                            {f}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Level Calibration */}
+                                {report.levelCalibration?.calibrationNotes && (
+                                    <div className="p-5 rounded-xl bg-gray-900/30 border border-gray-800 space-y-3">
+                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Level Calibration</span>
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-mono text-gray-500 uppercase">Applied</span>
+                                                <span className="text-xs font-semibold text-gray-300">{report.levelCalibration.appliedLevel}</span>
+                                            </div>
+                                            <div className="w-px h-4 bg-gray-700" />
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-mono text-gray-500 uppercase">Evidence</span>
+                                                <span className="text-xs font-semibold text-mongodb-neon">{report.levelCalibration.evidenceLevel}</span>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-gray-400 leading-relaxed">{report.levelCalibration.calibrationNotes}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Right Column */}
+                            <div className="space-y-6">
+                                {/* GitHub Assessment */}
+                                {report.githubAssessment && (
+                                    <div className="p-5 rounded-xl bg-gray-900/30 border border-gray-800 space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">GitHub Assessment</span>
+                                            {report.githubAssessment.overallComplexity && (
+                                                <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${report.githubAssessment.overallComplexity === 'production-grade' ? 'bg-mongodb-neon/10 text-mongodb-neon' :
+                                                    report.githubAssessment.overallComplexity === 'real-tool' ? 'bg-yellow-400/10 text-yellow-400' :
+                                                        'bg-gray-700 text-gray-400'
+                                                    }`}>{report.githubAssessment.overallComplexity}</span>
+                                            )}
+                                        </div>
+
+                                        {report.githubAssessment.repos?.map((repo, i) => (
+                                            <div key={i} className="p-4 rounded-lg bg-gray-900/50 border border-gray-800/60 space-y-2.5">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm font-semibold text-gray-200">{repo.name}</span>
+                                                    <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full ${repo.complexityRating === 'production-grade' ? 'bg-mongodb-neon/10 text-mongodb-neon' :
+                                                        repo.complexityRating === 'real-tool' ? 'bg-yellow-400/10 text-yellow-400' :
+                                                            'bg-gray-800 text-gray-500'
+                                                        }`}>{repo.complexityRating}</span>
+                                                </div>
+                                                {repo.architecturalObservations && (
+                                                    <p className="text-xs text-gray-400 leading-relaxed">{repo.architecturalObservations}</p>
+                                                )}
+                                                {repo.specificQuestions?.length > 0 && (
+                                                    <div className="space-y-1.5 pt-2 border-t border-gray-800/50">
+                                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Probe Questions</span>
+                                                        {repo.specificQuestions.map((q, j) => (
+                                                            <p key={j} className="text-[11px] text-gray-500 italic pl-3 border-l-2 border-gray-700">"{q}"</p>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+
+                                        {/* Infrastructure signals */}
+                                        <div className="flex flex-wrap gap-2 pt-1">
+                                            {report.githubAssessment.hasTests && (
+                                                <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-mongodb-neon/10 text-mongodb-neon">✓ Tests</span>
+                                            )}
+                                            {report.githubAssessment.hasInfraTooling && (
+                                                <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-mongodb-neon/10 text-mongodb-neon">✓ Infra</span>
+                                            )}
+                                            {report.githubAssessment.infrastructureSignals?.map((sig, i) => (
+                                                <span key={i} className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-gray-800 text-gray-400">{sig}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Interview Strategy */}
+                                {report.interviewPlan && (
+                                    <div className="p-5 rounded-xl bg-gray-900/30 border border-gray-800 space-y-3">
+                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Interview Strategy</span>
+                                        {report.interviewPlan.suggestedOpeningQuestion && (
+                                            <div className="p-3 rounded-lg bg-mongodb-neon/5 border border-mongodb-neon/10">
+                                                <span className="text-[9px] font-bold text-mongodb-neon uppercase block mb-1">Opening Question</span>
+                                                <p className="text-xs text-gray-300 italic">"{report.interviewPlan.suggestedOpeningQuestion}"</p>
+                                            </div>
+                                        )}
+                                        {report.interviewPlan.redFlagsToWatch?.length > 0 && (
+                                            <div>
+                                                <span className="text-[9px] font-bold text-red-400 uppercase block mb-1.5">Watch For</span>
+                                                <ul className="space-y-1">
+                                                    {report.interviewPlan.redFlagsToWatch.map((f, i) => (
+                                                        <li key={i} className="text-xs text-gray-400 flex items-start gap-2">
+                                                            <span className="text-red-400 mt-0.5">•</span>
+                                                            {f}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
             </main>
 
             {/* ── Floating Action Bar (Asymmetric Layout Footer Style) ── */}

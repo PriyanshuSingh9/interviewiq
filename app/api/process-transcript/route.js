@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { getGenAI } from "@/lib/gemini";
 
 export async function POST(req) {
     try {
@@ -8,7 +8,7 @@ export async function POST(req) {
             return Response.json({ text: "" });
         }
 
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const ai = getGenAI();
 
         // Using 2.5 Flash Lite as requested for fast, lightweight processing
         const response = await ai.models.generateContent({

@@ -30,7 +30,7 @@ export async function POST() {
     } catch (err) {
         console.error("Failed to create ephemeral token:", err);
         return Response.json(
-            { error: err.message || "Failed to create token" },
+            { error: "Failed to create token" },
             { status: 500 }
         );
     }

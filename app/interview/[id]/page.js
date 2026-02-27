@@ -351,7 +351,33 @@ export default function InterviewRoom({ params }) {
 
   useEffect(() => {
     transcriptStateRef.current = transcript;
-  }, [transcript]);
+    // H6: Persist transcript incrementally to sessionStorage on every update
+    if (typeof window !== "undefined" && transcript.length > 0) {
+      try {
+        window.sessionStorage.setItem(
+          `interviewiq:transcript:${sessionId}`,
+          JSON.stringify(transcript)
+        );
+      } catch (_) { /* sessionStorage full or unavailable */ }
+    }
+  }, [transcript, sessionId]);
+
+  // H6: Safety net — save transcript on tab close / navigation
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const current = transcriptStateRef.current;
+      if (typeof window !== "undefined" && current.length > 0) {
+        try {
+          window.sessionStorage.setItem(
+            `interviewiq:transcript:${sessionId}`,
+            JSON.stringify(current)
+          );
+        } catch (_) { }
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [sessionId]);
 
   const toggleQuestion = (id) => {
     setQuestions((qs) => qs.map((q) => q.id === id ? { ...q, done: !q.done } : q));

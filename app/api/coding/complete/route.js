@@ -1,12 +1,9 @@
 import { NextResponse } from 'next/server';
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
 import { codingRounds, codingSubmissions } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { GoogleGenAI } from '@google/genai';
-
-const sqlClient = neon(process.env.DATABASE_URL);
-const db = drizzle(sqlClient);
+import { getGenAI } from '@/lib/gemini';
+import { db } from '@/lib/db';
+import { auth } from '@clerk/nextjs/server';
 
 /**
  * POST /api/coding/complete
@@ -15,6 +12,11 @@ const db = drizzle(sqlClient);
  */
 export async function POST(req) {
     try {
+        const { userId: clerkId } = await auth();
+        if (!clerkId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { roundId } = await req.json();
 
         if (!roundId) {
@@ -71,7 +73,7 @@ export async function POST(req) {
 
 async function generateOverallFeedback(submissions, overallScore) {
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const ai = getGenAI();
 
         const summaryLines = submissions.map(s => {
             const feedback = s.aiFeedback || {};

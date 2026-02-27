@@ -38,53 +38,69 @@ export async function GET() {
             .where(eq(interviewPresets.userId, dbUser.id))
             .orderBy(desc(interviewPresets.createdAt));
 
-        // For each preset, fetch all sessions with their coding round data
-        const presetsWithSessions = await Promise.all(
-            presetsRaw.map(async (preset) => {
-                const sessions = await db
-                    .select({
-                        id: interviewSessions.id,
-                        preInterviewReport: interviewSessions.preInterviewReport,
-                        postInterviewReport: interviewSessions.postInterviewReport,
-                        createdAt: interviewSessions.createdAt,
-                    })
-                    .from(interviewSessions)
-                    .where(eq(interviewSessions.presetId, preset.id))
-                    .orderBy(desc(interviewSessions.createdAt));
+        if (presetsRaw.length === 0) {
+            return Response.json({ presets: [] });
+        }
 
-                // For each session, get coding round info
-                const sessionsWithCoding = await Promise.all(
-                    sessions.map(async (session) => {
-                        const [codingRound] = await db
-                            .select({
-                                id: codingRounds.id,
-                                status: codingRounds.status,
-                                overallScore: codingRounds.overallScore,
-                                overallFeedback: codingRounds.overallFeedback,
-                            })
-                            .from(codingRounds)
-                            .where(eq(codingRounds.sessionId, session.id))
-                            .limit(1);
-
-                        return {
-                            ...session,
-                            codingRound: codingRound || null,
-                        };
-                    })
-                );
-
-                return {
-                    ...preset,
-                    sessions: sessionsWithCoding,
-                };
+        // Batch fetch all sessions for these presets in a single query
+        const presetIds = presetsRaw.map(p => p.id);
+        const allSessions = await db
+            .select({
+                id: interviewSessions.id,
+                presetId: interviewSessions.presetId,
+                preInterviewReport: interviewSessions.preInterviewReport,
+                postInterviewReport: interviewSessions.postInterviewReport,
+                createdAt: interviewSessions.createdAt,
             })
-        );
+            .from(interviewSessions)
+            .where(sql`${interviewSessions.presetId} IN ${presetIds}`)
+            .orderBy(desc(interviewSessions.createdAt));
+
+        // Batch fetch all coding rounds for these sessions in a single query
+        const sessionIds = allSessions.map(s => s.id);
+        let allCodingRounds = [];
+        if (sessionIds.length > 0) {
+            allCodingRounds = await db
+                .select({
+                    id: codingRounds.id,
+                    sessionId: codingRounds.sessionId,
+                    status: codingRounds.status,
+                    overallScore: codingRounds.overallScore,
+                    overallFeedback: codingRounds.overallFeedback,
+                })
+                .from(codingRounds)
+                .where(sql`${codingRounds.sessionId} IN ${sessionIds}`);
+        }
+
+        // Build a lookup map for coding rounds by sessionId
+        const codingRoundsBySession = {};
+        for (const cr of allCodingRounds) {
+            codingRoundsBySession[cr.sessionId] = cr;
+        }
+
+        // Build a lookup map for sessions by presetId
+        const sessionsByPreset = {};
+        for (const session of allSessions) {
+            if (!sessionsByPreset[session.presetId]) {
+                sessionsByPreset[session.presetId] = [];
+            }
+            sessionsByPreset[session.presetId].push({
+                ...session,
+                codingRound: codingRoundsBySession[session.id] || null,
+            });
+        }
+
+        // Assemble final response
+        const presetsWithSessions = presetsRaw.map(preset => ({
+            ...preset,
+            sessions: sessionsByPreset[preset.id] || [],
+        }));
 
         return Response.json({ presets: presetsWithSessions });
     } catch (err) {
         console.error("Reports API error:", err);
         return Response.json(
-            { error: `Internal server error: ${err.message}` },
+            { error: "Internal server error" },
             { status: 500 }
         );
     }

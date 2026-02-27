@@ -3,8 +3,15 @@
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { auth } from '@clerk/nextjs/server';
 
 export const saveUser = async (user) => {
+    // Verify the calling user matches the clerkId being saved
+    const { userId: authenticatedClerkId } = await auth();
+    if (!authenticatedClerkId || authenticatedClerkId !== user.id) {
+        throw new Error("Unauthorized");
+    }
+
     try {
         const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown';
 
@@ -26,7 +33,7 @@ export const saveUser = async (user) => {
 
         return dbUser;
     } catch (error) {
-        console.error("Failed to save user:", error.message, "Input:", JSON.stringify(user));
-        throw new Error(`Could not sync user: ${error.message}`);
+        console.error("Failed to save user:", error.message);
+        throw new Error("Could not sync user");
     }
 }

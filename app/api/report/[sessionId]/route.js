@@ -10,7 +10,7 @@ export async function GET(req, { params }) {
             return Response.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { sessionId } = params;
+        const { sessionId } = await params;
         if (!sessionId) {
             return Response.json({ error: "sessionId is required" }, { status: 400 });
         }
@@ -44,7 +44,7 @@ export async function GET(req, { params }) {
         return Response.json({ report: session.postInterviewReport || null, createdAt: session.createdAt });
     } catch (err) {
         return Response.json(
-            { error: `Failed to fetch report: ${err.message}` },
+            { error: "Failed to fetch report" },
             { status: 500 }
         );
     }

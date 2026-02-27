@@ -73,7 +73,7 @@ export async function POST(req) {
         return Response.json({ status: "completed", report: persistedReport });
     } catch (err) {
         return Response.json(
-            { error: `Failed to generate report: ${err.message}` },
+            { error: "Failed to generate report" },
             { status: 500 }
         );
     }

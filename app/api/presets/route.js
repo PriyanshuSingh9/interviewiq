@@ -58,7 +58,7 @@ export async function GET() {
     } catch (err) {
         console.error("Presets API error:", err);
         return Response.json(
-            { error: `Internal server error: ${err.message}` },
+            { error: "Internal server error" },
             { status: 500 }
         );
     }

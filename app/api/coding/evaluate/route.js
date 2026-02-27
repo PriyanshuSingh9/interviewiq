@@ -1,12 +1,9 @@
 import { NextResponse } from 'next/server';
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
 import { codingSubmissions, questionBank } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { GoogleGenAI } from '@google/genai';
-
-const sqlClient = neon(process.env.DATABASE_URL);
-const db = drizzle(sqlClient);
+import { getGenAI } from '@/lib/gemini';
+import { db } from '@/lib/db';
+import { auth } from '@clerk/nextjs/server';
 
 const PISTON_API = 'https://emkc.org/api/v2/piston/execute';
 
@@ -17,6 +14,11 @@ const PISTON_API = 'https://emkc.org/api/v2/piston/execute';
  */
 export async function POST(req) {
     try {
+        const { userId: clerkId } = await auth();
+        if (!clerkId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { submissionId, code } = await req.json();
 
         if (!submissionId || !code) {
@@ -41,20 +43,33 @@ export async function POST(req) {
         const { question } = submissions[0];
         const testCases = Array.isArray(question.testCases) ? question.testCases : [];
 
-        // 2. Run code against test cases via Piston API
-        const testResults = [];
-        let testsPassed = 0;
+        // Reject excessively large code submissions
+        if (code.length > 50000) {
+            return NextResponse.json({ error: 'Code too large (max 50KB)' }, { status: 400 });
+        }
 
         for (const tc of testCases) {
-            // Build the execution code: call the function with test input and log the result
+            // Build the execution code with isolation:
+            // 1. Capture console.log BEFORE user code so it can't be overridden
+            // 2. Parse test input from JSON string (no raw interpolation)
+            // 3. Wrap in IIFE to prevent variable leakage
             const fnName = extractFunctionName(question.starterCode);
+            const safeInput = JSON.stringify(tc.input); // serialize once, parse at runtime
             const execCode = `
-${code}
+(function() {
+    const __log = console.log.bind(console);
+    const __stringify = JSON.stringify;
 
-// Test execution
-const __input = ${tc.input};
-const __result = ${fnName}(...__input);
-console.log(JSON.stringify(__result));
+    // --- User code (sandboxed by Piston) ---
+    ${code}
+    // --- End user code ---
+
+    const __input = JSON.parse(${JSON.stringify(safeInput)});
+    const __fn = typeof ${fnName} === 'function' ? ${fnName} : null;
+    if (!__fn) { __log('__ERR_FN_NOT_FOUND__'); return; }
+    const __result = __fn(...__input);
+    __log(__stringify(__result));
+})();
 `;
             try {
                 const pistonRes = await fetch(PISTON_API, {
@@ -65,6 +80,7 @@ console.log(JSON.stringify(__result));
                         version: '18.15.0',
                         files: [{ content: execCode }],
                         run_timeout: 5000,
+                        memory_limit: 128000000, // 128MB memory limit
                     }),
                 });
 
@@ -88,7 +104,7 @@ console.log(JSON.stringify(__result));
                     input: tc.input,
                     expected: tc.expectedOutput,
                     actual: null,
-                    stderr: err.message,
+                    stderr: 'Execution failed',
                     passed: false,
                 });
             }
@@ -137,7 +153,7 @@ function extractFunctionName(starterCode) {
  */
 async function getGeminiFeedback(question, userCode, testResults, testsPassed, testsTotal) {
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const ai = getGenAI();
 
         const prompt = `You are a senior coding interview evaluator. Evaluate this code submission.
 

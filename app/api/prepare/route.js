@@ -150,7 +150,7 @@ export async function POST(req) {
     } catch (err) {
         console.error("Prepare API error:", err);
         return Response.json(
-            { error: `Internal server error: ${err.message}` },
+            { error: "Internal server error" },
             { status: 500 }
         );
     }

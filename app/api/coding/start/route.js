@@ -1,13 +1,10 @@
 import { NextResponse } from 'next/server';
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
 import { sql, inArray } from 'drizzle-orm';
 import { interviewSessions, interviewPresets, questionBank, codingRounds, codingSubmissions } from '@/lib/db/schema';
 import { getTagsForRole } from '@/lib/coding/roleTagMapping';
 import { eq } from 'drizzle-orm';
-
-const sqlClient = neon(process.env.DATABASE_URL);
-const db = drizzle(sqlClient);
+import { db } from '@/lib/db';
+import { auth } from '@clerk/nextjs/server';
 
 /**
  * POST /api/coding/start
@@ -22,6 +19,11 @@ const db = drizzle(sqlClient);
  */
 export async function POST(req) {
     try {
+        const { userId: clerkId } = await auth();
+        if (!clerkId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { sessionId } = await req.json();
 
         if (!sessionId) {
@@ -88,26 +90,16 @@ export async function POST(req) {
             });
         }
 
-        // 3. Get role tags and fetch random questions
+        // 3. Get role tags and fetch random matching questions directly in SQL
         const roleTags = getTagsForRole(targetRole);
 
-        // Query questions where any of the roleTags overlap with the question's roleTags
-        // Use raw SQL for the JSON array overlap since drizzle doesn't support it natively
-        const allQuestions = await db
+        // Filter in SQL using PostgreSQL's ?| operator for jsonb array overlap
+        const selectedQuestions = await db
             .select()
             .from(questionBank)
+            .where(sql`${questionBank.roleTags} ?| array[${sql.join(roleTags.map(t => sql`${t}`), sql`, `)}]`)
             .orderBy(sql`RANDOM()`)
-            .limit(50); // Get a pool to filter from
-
-        // Filter in JS for role tag overlap
-        const matchingQuestions = allQuestions.filter(q => {
-            const qRoleTags = Array.isArray(q.roleTags) ? q.roleTags : [];
-            return qRoleTags.some(tag => roleTags.includes(tag));
-        });
-
-        // Select 3-5 questions (mix of difficulties)
-        const numQuestions = Math.min(5, Math.max(3, matchingQuestions.length));
-        const selectedQuestions = matchingQuestions.slice(0, numQuestions);
+            .limit(5);
 
         if (selectedQuestions.length === 0) {
             return NextResponse.json({ error: 'No matching questions found for role' }, { status: 404 });

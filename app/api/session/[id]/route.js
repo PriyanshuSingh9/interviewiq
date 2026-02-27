@@ -83,7 +83,7 @@ export async function GET(req, { params }) {
     } catch (err) {
         console.error("Session fetch error:", err);
         return Response.json(
-            { error: `Failed to fetch session: ${err.message}` },
+            { error: "Failed to fetch session" },
             { status: 500 }
         );
     }

@@ -70,8 +70,11 @@ export default function ReportPage({ params }) {
         };
     }, [fetchReport]);
 
+    const generationStartedRef = useRef(false);
+
     useEffect(() => {
-        if (report || !transcript || generating) return;
+        if (report || !transcript || generationStartedRef.current) return;
+        generationStartedRef.current = true;
         let active = true;
 
         const run = async () => {
@@ -87,7 +90,10 @@ export default function ReportPage({ params }) {
                 if (!res.ok) throw new Error(data.error || "Failed to generate report");
                 if (active) setReport(data.report);
             } catch (err) {
-                if (active) setError(err.message);
+                if (active) {
+                    setError(err.message);
+                    generationStartedRef.current = false; // allow retry on error
+                }
             } finally {
                 if (active) setGenerating(false);
             }
@@ -97,7 +103,7 @@ export default function ReportPage({ params }) {
         return () => {
             active = false;
         };
-    }, [report, transcript, generating, sessionId]);
+    }, [report, transcript, sessionId]);
 
     const dimensions = useMemo(() => {
         if (!report?.dimensions) return [];

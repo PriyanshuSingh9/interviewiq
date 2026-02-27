@@ -19,12 +19,14 @@ import {
   WifiOff,
   Loader2,
   AlertTriangle,
+  Code2,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use } from "react";
 import { GeminiLiveSession } from "@/lib/gemini-live";
 import { InterruptEngine } from "@/lib/interrupt-engine";
+import Editor from "@monaco-editor/react";
 
 // ─────────────────────────────────────────
 // Helpers
@@ -95,6 +97,14 @@ export default function InterviewRoom({ params }) {
   const transcriptStateRef = useRef([]);
   const endingRef = useRef(false);
   const interruptEngineRef = useRef(null); // InterruptEngine instance
+
+  // ── Coding Round State ───────────────────────────────
+  const [codingMode, setCodingMode] = useState(false);
+  const [codingQuestion, setCodingQuestion] = useState("Write a function to solve the problem described by the interviewer.");
+  const [codeContent, setCodeContent] = useState("// Write your solution here\n");
+  const [codingTimeLeft, setCodingTimeLeft] = useState(null); // in seconds
+  const [isSubmittingCode, setIsSubmittingCode] = useState(false);
+  const timerRef = useRef(null);
 
   // ── Session data from API ──────────────────────────────
   const [sessionData, setSessionData] = useState(null);
@@ -293,16 +303,52 @@ export default function InterviewRoom({ params }) {
       systemInstruction: sessionData.systemPrompt || undefined,
       onTranscript: (role, text) => {
         setTranscript((prev) => {
+          let updatedText = text;
+          let newTranscript;
+
           const last = prev[prev.length - 1];
           if (role === "ai") {
             if (last && last.role === "ai") {
-              return [
+              newTranscript = [
                 ...prev.slice(0, -1),
-                { ...last, text: last.text + text },
+                { ...last, text: last.text + updatedText },
               ];
+            } else {
+              newTranscript = [...prev, { role, text: updatedText, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
             }
+          } else {
+            newTranscript = [...prev, { role, text: updatedText, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
           }
-          return [...prev, { role, text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
+
+          // If AI, look for <PROBLEM> tags and timers in the FULL accumulated string so far
+          if (role === "ai") {
+            const currentTurnText = newTranscript[newTranscript.length - 1].text;
+
+            // Extract Written Problem (allows missing closing tag so it renders while streaming)
+            if (currentTurnText.includes("<PROBLEM>")) {
+              const match = currentTurnText.match(/<PROBLEM>([\s\S]*?)(?:<\/PROBLEM>|$)/);
+              if (match && match[1]) {
+                setCodingQuestion(match[1].trim());
+              }
+            }
+
+            // Extract Time Limit automatically if mentioned
+            setCodingTimeLeft((currentTimer) => {
+              if (currentTimer !== null) return currentTimer; // don't override if already set
+
+              // look for "5 minutes", "10 mins", etc.
+              const timeMatch = currentTurnText.match(/(\d+)\s*(?:minutes|mins|min)/i);
+              if (timeMatch && timeMatch[1]) {
+                const mins = parseInt(timeMatch[1]);
+                if (mins > 0 && mins < 60) {
+                  return mins * 60;
+                }
+              }
+              return null;
+            });
+          }
+
+          return newTranscript;
         });
         if (role === "ai" && !endingRef.current) {
           const lower = text.toLowerCase();
@@ -312,8 +358,8 @@ export default function InterviewRoom({ params }) {
         }
       },
       onCandidateChunk: (text) => {
-        // Feed real-time transcript to the interrupt engine
-        if (interruptEngineRef.current) {
+        // Feed real-time transcript to the interrupt engine (unless coding)
+        if (interruptEngineRef.current && !codingMode) {
           interruptEngineRef.current.feedTranscript(text);
         }
       },
@@ -378,6 +424,73 @@ export default function InterviewRoom({ params }) {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [sessionId]);
+
+  // Timer countdown logic
+  useEffect(() => {
+    if (codingTimeLeft === null) return;
+
+    timerRef.current = setInterval(() => {
+      setCodingTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+
+          // Send timing prompt to Gemini
+          if (geminiRef.current) {
+            console.log("[InterviewIQ] Sending coding timing prompt");
+            geminiRef.current.sendContextMessage(
+              `[SYSTEM MSG] The candidate's allocated time for the coding challenge has ended. 
+               Check in with them — ask if they are close to finishing, if they need a hint, or if they are ready to submit.`
+            );
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timerRef.current);
+  }, [codingTimeLeft]);
+
+  // Handle Code Submission
+  const handleSubmitCode = async () => {
+    if (!geminiRef.current || isSubmittingCode) return;
+    setIsSubmittingCode(true);
+
+    try {
+      // Create a dummy submission object in DB just to use the evaluation endpoint
+      // Alternatively, we can just call piston directly or use a simplified backend route.
+      // For now, we'll evaluate directly on the client to avoid needing a DB questionId,
+      // and just send the raw code to Gemini for feedback.
+
+      geminiRef.current.sendContextMessage(
+        `[SYSTEM MSG] The candidate has submitted their code. 
+         
+         ═══ CANDIDATE CODE ═══
+         ${codeContent}
+         
+         Please evaluate this code. Does it correctly solve the problem you gave them? 
+         Discuss its time/space complexity, any bugs, or potential improvements directly with the candidate.
+         Ask them to walk through their approach.`
+      );
+
+      setCodingMode(false);
+      setCodingTimeLeft(null);
+      if (timerRef.current) clearInterval(timerRef.current);
+      setCodeContent("// Write your solution here\n");
+
+    } catch (err) {
+      console.error("Code submission error:", err);
+    } finally {
+      setIsSubmittingCode(false);
+    }
+  };
+
+  const formatTimeLeft = (seconds) => {
+    if (seconds === null) return "--:--";
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   const toggleQuestion = (id) => {
     setQuestions((qs) => qs.map((q) => q.id === id ? { ...q, done: !q.done } : q));
@@ -548,6 +661,96 @@ export default function InterviewRoom({ params }) {
               )}
             </div>
 
+            {/* ── Integrated Coding Panel ── */}
+            {codingMode && (
+              <div className="absolute inset-4 bg-[#061621] rounded-2xl overflow-hidden border-2 border-mongodb-neon/40 shadow-2xl z-20 flex flex-col">
+
+                {/* Editor Header */}
+                <div className="h-14 bg-gradient-to-r from-[#001E2B] to-[#01141e] border-b border-white/10 flex items-center justify-between px-6 shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-mongodb-neon/20 p-1.5 rounded-lg border border-mongodb-neon/30">
+                      <MonitorUp size={16} className="text-mongodb-neon" />
+                    </div>
+                    <span className="font-semibold text-sm text-white">Interactive Coding Round</span>
+                    <span className="text-[10px] bg-white/10 text-white/50 px-2 py-0.5 rounded-full font-mono">JavaScript</span>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    {/* Timer */}
+                    {codingTimeLeft !== null && (
+                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${codingTimeLeft < 60 ? 'bg-red-500/10 border-red-500/30 text-red-400 font-bold' : 'bg-white/5 border-white/10 text-[#8899A6]'}`}>
+                        <Clock size={14} className={codingTimeLeft < 60 ? "animate-pulse" : ""} />
+                        <span className="text-sm font-mono tracking-wider">{formatTimeLeft(codingTimeLeft)}</span>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => setCodingMode(false)}
+                      className="text-[#8899A6] hover:text-white p-1 rounded transition-colors"
+                      title="Minimize Editor"
+                    >
+                      <X size={18} />
+                    </button>
+
+                    <button
+                      onClick={handleSubmitCode}
+                      disabled={isSubmittingCode}
+                      className="flex items-center gap-2 bg-mongodb-neon hover:bg-[#00d050] text-[#001E2B] px-5 py-1.5 rounded-lg font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSubmittingCode ? (
+                        <><Loader2 size={14} className="animate-spin" /> Submitting...</>
+                      ) : (
+                        "Submit Code"
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Question Info Banner */}
+                <div className="bg-[#011621] border-b border-white/5 p-6 shrink-0 flex flex-col gap-4 overflow-y-auto max-h-[40%] custom-scrollbar">
+                  <div className="flex items-start gap-4">
+                    <div className="text-mongodb-neon mt-1">
+                      <BrainCircuit size={16} />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-white mb-2">Problem Statement</h3>
+                      <p className="text-sm text-[#E8EDF0] leading-relaxed whitespace-pre-wrap font-mono bg-black/40 p-4 rounded-lg border border-white/5">
+                        {codingQuestion || "Listen to the AI Interviewer for the prompt. Write your solution in the editor below and click Submit when ready."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Monaco Editor */}
+                <div className="flex-1 relative">
+                  <Editor
+                    height="100%"
+                    defaultLanguage="javascript"
+                    theme="vs-dark"
+                    value={codeContent}
+                    onChange={(val) => setCodeContent(val || "")}
+                    options={{
+                      minimap: { enabled: false },
+                      fontSize: 14,
+                      fontFamily: "var(--font-mono), monospace",
+                      lineHeight: 24,
+                      padding: { top: 24, bottom: 24 },
+                      scrollBeyondLastLine: false,
+                      smoothScrolling: true,
+                      cursorBlinking: "smooth",
+                      fontLigatures: true,
+                      formatOnPaste: true,
+                      renderLineHighlight: "all",
+                    }}
+                    loading={
+                      <div className="flex h-full items-center justify-center text-mongodb-neon/50">
+                        <Loader2 className="animate-spin" size={24} />
+                      </div>
+                    }
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Control Bar ─────────────────────────────────── */}
@@ -589,8 +792,18 @@ export default function InterviewRoom({ params }) {
               </button>
             </div>
 
-            {/* Right panel toggle – Transcript only */}
+            {/* Right panel toggles */}
             <div className="flex items-center gap-2">
+              {/* Coding Mode Toggle */}
+              <button
+                onClick={() => setCodingMode((prev) => !prev)}
+                className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-200 ${codingMode ? "bg-mongodb-neon/15 text-mongodb-neon" : "bg-white/5 hover:bg-white/10 text-[#8899A6] hover:text-white"}`}
+              >
+                <Code2 size={18} />
+                <span className="text-[10px] font-medium opacity-70">Coding</span>
+              </button>
+
+              {/* Transcript Toggle */}
               <button
                 onClick={() => setActivePanel((p) => (p === "transcript" ? null : "transcript"))}
                 className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-200 ${activePanel === "transcript" ? "bg-mongodb-neon/15 text-mongodb-neon" : "bg-white/5 hover:bg-white/10 text-[#8899A6] hover:text-white"}`}
@@ -642,19 +855,26 @@ export default function InterviewRoom({ params }) {
                     </div>
                   )}
 
-                  {transcript.map((item, i) => (
-                    <div key={i} className="group">
-                      <div className="flex items-center gap-2 mb-1">
-                        {item.role === "ai" ? (
-                          <span className="text-[10px] font-bold text-mongodb-neon uppercase bg-mongodb-neon/10 px-2 py-0.5 rounded border border-mongodb-neon/20">AI</span>
-                        ) : (
-                          <span className="text-[10px] font-bold text-[#8899A6] uppercase bg-[#113247] px-2 py-0.5 rounded">You</span>
-                        )}
-                        <span className="text-[10px] text-[#8899A6] font-mono">{item.time}</span>
+                  {transcript.map((item, i) => {
+                    // Clean <PROBLEM> tags out of the transcript view so it's readable
+                    const displayText = item.role === "ai"
+                      ? item.text.replace(/<PROBLEM>[\s\S]*?(?:<\/PROBLEM>|$)/g, "\n\n[Displaying Coding Problem on Screen...]\n\n")
+                      : item.text;
+
+                    return (
+                      <div key={i} className="group">
+                        <div className="flex items-center gap-2 mb-1">
+                          {item.role === "ai" ? (
+                            <span className="text-[10px] font-bold text-mongodb-neon uppercase bg-mongodb-neon/10 px-2 py-0.5 rounded border border-mongodb-neon/20">AI</span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-[#8899A6] uppercase bg-[#113247] px-2 py-0.5 rounded">You</span>
+                          )}
+                          <span className="text-[10px] text-[#8899A6] font-mono">{item.time}</span>
+                        </div>
+                        <p className="text-sm text-[#E8EDF0] leading-relaxed">{displayText}</p>
                       </div>
-                      <p className="text-sm text-[#E8EDF0] leading-relaxed">{item.text}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
 
                   {/* Live speaking indicator (AI only) */}
                   {aiSpeaking && (

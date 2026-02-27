@@ -19,11 +19,41 @@ export async function POST(req) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { submissionId, code } = await req.json();
+        const { submissionId, code, questionTitle, questionDescription } = await req.json();
 
-        if (!submissionId || !code) {
-            return NextResponse.json({ error: 'submissionId and code are required' }, { status: 400 });
+        if (!code) {
+            return NextResponse.json({ error: 'code is required' }, { status: 400 });
         }
+
+        // ── Ad-hoc Mode (Integrated Interview Round) ─────────────────
+        if (!submissionId) {
+            if (!questionTitle || !questionDescription) {
+                return NextResponse.json({ error: 'questionTitle and questionDescription are required for ad-hoc evaluation' }, { status: 400 });
+            }
+
+            // In ad-hoc mode, there are no pre-defined test cases to run in Piston.
+            // We go straight to Gemini for qualitative evaluation.
+            const dummyQuestion = {
+                title: questionTitle,
+                type: 'dsa',
+                difficulty: 'Variable',
+                description: questionDescription,
+                idealSolution: 'N/A',
+            };
+
+            const aiFeedback = await getGeminiFeedback(dummyQuestion, code, [], 0, 0);
+
+            return NextResponse.json({
+                testResults: [],
+                testsPassed: 0,
+                testsTotal: 0,
+                aiScore: aiFeedback.score,
+                aiFeedback,
+            });
+        }
+        // ─────────────────────────────────────────────────────────────
+
+        // ── Standard DB Mode (Separate Coding Round Page) ────────────
 
         // 1. Get the submission and question
         const submissions = await db
@@ -170,8 +200,7 @@ ${question.idealSolution || 'Not provided'}
 ${userCode}
 
 ═══ TEST RESULTS ═══
-${testsPassed}/${testsTotal} tests passed
-${testResults.map((t, i) => `Test ${i + 1}: ${t.passed ? '✅ PASS' : '❌ FAIL'} | Input: ${t.input} | Expected: ${t.expected} | Got: ${t.actual || 'ERROR'}${t.stderr ? ' | Error: ' + t.stderr : ''}`).join('\n')}
+${testsTotal > 0 ? `${testsPassed}/${testsTotal} tests passed\n` + testResults.map((t, i) => `Test ${i + 1}: ${t.passed ? '✅ PASS' : '❌ FAIL'} | Input: ${t.input} | Expected: ${t.expected} | Got: ${t.actual || 'ERROR'}${t.stderr ? ' | Error: ' + t.stderr : ''}`).join('\n') : "No automated tests run. Evaluate the code purely based on correct logic, time/space complexity, and clean structure."}
 
 ═══ OUTPUT FORMAT ═══
 Return a JSON object:

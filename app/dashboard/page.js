@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { useUser } from '@clerk/nextjs';
 import { saveUser } from '@/app/actions/saveUser';
 import { useRouter } from 'next/navigation';
-import { Paperclip, Link as LinkIcon, Clipboard, Check, PlayCircle, Zap, Clock, Lock, List, Loader2, AlertCircle, ChevronDown, ChevronUp, RotateCcw, Plus } from 'lucide-react';
+import { Paperclip, Link as LinkIcon, Clipboard, Check, PlayCircle, Zap, Clock, Lock, List, Loader2, AlertCircle, ChevronDown, ChevronUp, RotateCcw, Plus, Code2 } from 'lucide-react';
 
 export default function Dashboard() {
     const { user, isLoaded } = useUser();

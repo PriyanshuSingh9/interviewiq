@@ -137,7 +137,7 @@ export default function LandingPage() {
                     <span className="text-xs font-bold text-mongodb-neon uppercase bg-mongodb-neon/10 px-2 py-0.5 rounded">AI Manager</span>
                     <span className="text-xs text-[#8899A6]">02:14</span>
                   </div>
-                  <p className="text-sm text-[#E8EDF0] leading-relaxed">Let's move onto the system design. How would you architect a globally distributed rate limiter for our public API?</p>
+                  <p className="text-sm text-[#E8EDF0] leading-relaxed">Let&apos;s move onto the system design. How would you architect a globally distributed rate limiter for our public API?</p>
                 </div>
 
                 <div className="space-y-2 relative z-0">

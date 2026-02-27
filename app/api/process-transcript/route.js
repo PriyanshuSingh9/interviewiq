@@ -29,7 +29,6 @@ ${text}`,
                 temperature: 0.1, // Low temp for formatting-only
             }
         });
-
         return Response.json({ text: response.text });
     } catch (err) {
         console.error("Transcription processing failed:", err);

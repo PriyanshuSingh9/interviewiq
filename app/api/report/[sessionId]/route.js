@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { interviewSessions, interviewPresets } from "@/lib/db/schema";
+import { interviewSessions, interviewPresets, users } from "@/lib/db/schema";
 
 export async function GET(req, { params }) {
     try {
@@ -13,6 +13,16 @@ export async function GET(req, { params }) {
         const { sessionId } = params;
         if (!sessionId) {
             return Response.json({ error: "sessionId is required" }, { status: 400 });
+        }
+
+        const [dbUser] = await db
+            .select()
+            .from(users)
+            .where(eq(users.clerkId, clerkId))
+            .limit(1);
+
+        if (!dbUser) {
+            return Response.json({ error: "User not found" }, { status: 404 });
         }
 
         const [session] = await db
@@ -27,7 +37,7 @@ export async function GET(req, { params }) {
             .where(eq(interviewSessions.id, sessionId))
             .limit(1);
 
-        if (!session || session.presetUserId !== clerkId) {
+        if (!session || session.presetUserId !== dbUser.id) {
             return Response.json({ error: "Session not found" }, { status: 404 });
         }
 

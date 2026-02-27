@@ -28,6 +28,7 @@ export default function Dashboard() {
     const [presetsOpen, setPresetsOpen] = useState(false);
     const [loadingPresets, setLoadingPresets] = useState(true);
     const [pickedFileName, setPickedFileName] = useState(null); // tracks newly picked file name
+    const [codingRound, setCodingRound] = useState(null);
     const hiddenFileInputRef = useRef(null);
 
     const isReady = !!sessionId;
@@ -62,6 +63,32 @@ export default function Dashboard() {
         if (isLoaded && user) fetchPresets();
     }, [isLoaded, user]);
 
+    useEffect(() => {
+        if (!sessionId) {
+            setCodingRound(null);
+            return;
+        }
+        let cancelled = false;
+        const loadSession = async () => {
+            try {
+                const res = await fetch(`/api/session/${sessionId}`);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to load session');
+                if (!cancelled) {
+                    setCodingRound(data.session?.codingRound || null);
+                }
+            } catch {
+                if (!cancelled) {
+                    setCodingRound(null);
+                }
+            }
+        };
+        loadSession();
+        return () => {
+            cancelled = true;
+        };
+    }, [sessionId]);
+
     const resume = watch('resume');
     const githubUrl = watch('githubUrl');
 
@@ -70,6 +97,7 @@ export default function Dashboard() {
         setApiError(null);
         setSessionId(null);
         setReport(null);
+        setCodingRound(null);
 
         try {
             const formData = new FormData();
@@ -706,7 +734,15 @@ export default function Dashboard() {
                         <div className="flex-1 text-left pl-1">
                             <span className="text-base block leading-tight">Coding Round</span>
                             <span className={`block text-[10px] font-normal uppercase tracking-widest font-mono transition-colors mt-0.5 ${isReady ? 'text-white/70' : 'text-gray-600'}`}>
-                                {preparing ? 'Preparing...' : isReady ? 'DSA & Bug Fix' : 'Requires Prepared Plan'}
+                                {preparing
+                                    ? 'Preparing...'
+                                    : isReady
+                                        ? codingRound?.status === 'completed'
+                                            ? `Completed ${codingRound.overallScore ?? 0}/100`
+                                            : codingRound?.status === 'in_progress'
+                                                ? 'In Progress'
+                                                : 'DSA & Bug Fix'
+                                        : 'Requires Prepared Plan'}
                             </span>
                         </div>
                         <div className={`p-2 rounded-lg flex items-center justify-center transition-colors ${isReady ? 'bg-white/10 text-white' : 'bg-gray-900 border border-gray-800 text-gray-600'

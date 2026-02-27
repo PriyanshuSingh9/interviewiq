@@ -21,6 +21,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { use } from "react";
 import { GeminiLiveSession } from "@/lib/gemini-live";
 import { InterruptEngine } from "@/lib/interrupt-engine";
@@ -74,6 +75,7 @@ function buildQuestionsFromReport(report) {
 // ─────────────────────────────────────────
 export default function InterviewRoom({ params }) {
   const { id: sessionId } = use(params);
+  const router = useRouter();
   const elapsed = useTimer();
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
@@ -86,8 +88,12 @@ export default function InterviewRoom({ params }) {
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [geminiStatus, setGeminiStatus] = useState("idle"); // idle | connecting | connected | live | error | disconnected
   const [mediaStream, setMediaStream] = useState(null);  // triggers Gemini connection reliably
+  const [ending, setEnding] = useState(false);
+  const [endError, setEndError] = useState(null);
   const transcriptRef = useRef(null);
   const geminiRef = useRef(null);     // GeminiLiveSession instance
+  const transcriptStateRef = useRef([]);
+  const endingRef = useRef(false);
   const interruptEngineRef = useRef(null); // InterruptEngine instance
 
   // ── Session data from API ──────────────────────────────
@@ -229,6 +235,33 @@ export default function InterviewRoom({ params }) {
     });
   }, []);
 
+  const triggerEndInterview = useCallback(async () => {
+    if (endingRef.current) return;
+    endingRef.current = true;
+    setEnding(true);
+    setEndError(null);
+
+    const transcriptSnapshot = transcriptStateRef.current;
+
+    try {
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem(
+          `interviewiq:transcript:${sessionId}`,
+          JSON.stringify(transcriptSnapshot)
+        );
+      }
+      router.push(`/report/${sessionId}`);
+    } catch (err) {
+      setEndError(err.message);
+      endingRef.current = false;
+      setEnding(false);
+    } finally {
+      if (geminiRef.current) {
+        geminiRef.current.disconnect();
+      }
+    }
+  }, [router, sessionId]);
+
   // ── Connect Gemini Live when stream is ready ────────
   useEffect(() => {
     if (!mediaStream || !sessionData) return;
@@ -271,6 +304,12 @@ export default function InterviewRoom({ params }) {
           }
           return [...prev, { role, text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
         });
+        if (role === "ai" && !endingRef.current) {
+          const lower = text.toLowerCase();
+          if (lower.includes("thanks for your time") || lower.includes("we'll be in touch") || lower.includes("that's everything from me")) {
+            triggerEndInterview();
+          }
+        }
       },
       onCandidateChunk: (text) => {
         // Feed real-time transcript to the interrupt engine
@@ -301,13 +340,17 @@ export default function InterviewRoom({ params }) {
       engine.destroy();
       interruptEngineRef.current = null;
     };
-  }, [mediaStream, sessionData]);
+  }, [mediaStream, sessionData, triggerEndInterview]);
 
   // Auto-scroll transcript
   useEffect(() => {
     if (transcriptRef.current) {
       transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
     }
+  }, [transcript]);
+
+  useEffect(() => {
+    transcriptStateRef.current = transcript;
   }, [transcript]);
 
   const toggleQuestion = (id) => {
@@ -510,12 +553,14 @@ export default function InterviewRoom({ params }) {
 
             {/* Center – End Interview (Perfectly Centered) */}
             <div className="absolute left-1/2 -translate-x-1/2">
-              <Link href="/">
-                <button className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:shadow-[0_0_30px_rgba(239,68,68,0.5)]">
-                  <PhoneOff size={16} />
-                  End Interview
-                </button>
-              </Link>
+              <button
+                onClick={triggerEndInterview}
+                disabled={ending}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:shadow-[0_0_30px_rgba(239,68,68,0.5)] ${ending ? "bg-red-800 text-white/70 cursor-not-allowed" : "bg-red-600 hover:bg-red-500 text-white"}`}
+              >
+                <PhoneOff size={16} />
+                {ending ? "Ending..." : "End Interview"}
+              </button>
             </div>
 
             {/* Right panel toggle – Transcript only */}
@@ -534,6 +579,11 @@ export default function InterviewRoom({ params }) {
         {/* ── Side Panel ──────────────────────────────────── */}
         {activePanel && (
           <aside className="w-80 bg-mongodb-card border-l border-white/5 flex flex-col shrink-0 overflow-hidden">
+            {endError && (
+              <div className="p-3 border-b border-white/5 text-xs text-red-300 bg-red-500/10">
+                {endError}
+              </div>
+            )}
 
             {/* Panel header */}
             <div className="h-12 flex items-center justify-between px-4 border-b border-white/5 shrink-0">

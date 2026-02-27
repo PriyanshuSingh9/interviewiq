@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Navbar } from '@/components/Navbar';
 import {
     Loader2, Briefcase, Calendar, GitBranch, FileText, Code2,
@@ -15,23 +15,54 @@ export default function ReportsPage() {
     const [error, setError] = useState(null);
     const [expandedPreset, setExpandedPreset] = useState(null);
     const [expandedSession, setExpandedSession] = useState(null);
+    const [regeneratingId, setRegeneratingId] = useState(null);
+    const [regenerateError, setRegenerateError] = useState(null);
+
+    const fetchReports = useCallback(async () => {
+        try {
+            const res = await fetch('/api/reports');
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            setPresets(data.presets || []);
+            if (data.presets?.length > 0) setExpandedPreset(data.presets[0].id);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        async function fetchReports() {
-            try {
-                const res = await fetch('/api/reports');
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error);
-                setPresets(data.presets || []);
-                if (data.presets?.length > 0) setExpandedPreset(data.presets[0].id);
-            } catch (err) {
-                setError(err.message);
-            } finally {
-                setLoading(false);
-            }
-        }
         fetchReports();
+    }, [fetchReports]);
+
+    const applyReportUpdate = useCallback((sessionId, report) => {
+        setPresets((prev) => prev.map((preset) => ({
+            ...preset,
+            sessions: preset.sessions.map((session) => (
+                session.id === sessionId ? { ...session, postInterviewReport: report } : session
+            )),
+        })));
     }, []);
+
+    const regenerateReport = useCallback(async (sessionId, transcript) => {
+        setRegeneratingId(sessionId);
+        setRegenerateError(null);
+        try {
+            const res = await fetch('/api/generate-report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId, transcript, force: true }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to regenerate report');
+            applyReportUpdate(sessionId, data.report);
+        } catch (err) {
+            setRegenerateError(err.message);
+        } finally {
+            setRegeneratingId(null);
+        }
+    }, [applyReportUpdate]);
 
     // Compute summary stats
     const stats = useMemo(() => {
@@ -169,10 +200,12 @@ export default function ReportsPage() {
                                             )}
                                             {preset.sessions.map((session, idx) => {
                                                 const report = session.preInterviewReport;
+                                                const postReport = session.postInterviewReport;
                                                 const codingRound = session.codingRound;
                                                 const isSessionExpanded = expandedSession === session.id;
                                                 const fitScore = report?.fitAnalysis?.fitScore;
                                                 const fitColors = fitScore != null ? scoreColor(fitScore) : null;
+                                                const canRegenerate = postReport?.error && Array.isArray(postReport.transcript) && postReport.transcript.length > 0;
 
                                                 return (
                                                     <div key={session.id} className={idx > 0 ? 'border-t border-gray-800/50' : ''}>
@@ -216,6 +249,84 @@ export default function ReportsPage() {
 
                                                                     {/* ── Left Column ── */}
                                                                     <div className="space-y-3">
+                                                                        {postReport?.error && (
+                                                                            <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/20 space-y-2">
+                                                                                <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Post-Interview Report</span>
+                                                                                <p className="text-xs text-red-200/80">{postReport.error}</p>
+                                                                                {regenerateError && (
+                                                                                    <p className="text-[11px] text-red-300/80">{regenerateError}</p>
+                                                                                )}
+                                                                                <button
+                                                                                    onClick={() => regenerateReport(session.id, postReport.transcript)}
+                                                                                    disabled={!canRegenerate || regeneratingId === session.id}
+                                                                                    className={`text-xs px-3 py-1.5 rounded-lg border ${!canRegenerate || regeneratingId === session.id ? 'border-red-500/20 text-red-300/60 cursor-not-allowed' : 'border-red-500/40 text-red-300 hover:text-red-200 hover:border-red-500/60'}`}
+                                                                                >
+                                                                                    {regeneratingId === session.id ? 'Regenerating...' : 'Regenerate Report'}
+                                                                                </button>
+                                                                            </div>
+                                                                        )}
+                                                                        {postReport && !postReport.error && (
+                                                                            <div className="p-4 rounded-xl bg-gray-900/30 border border-gray-800 space-y-3">
+                                                                                <div className="flex items-start justify-between">
+                                                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Post-Interview Report</span>
+                                                                                    <div className="text-right">
+                                                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Overall</span>
+                                                                                        <div className="text-xl font-mono font-bold text-mongodb-neon">{postReport.overallScore}/100</div>
+                                                                                        <div className="text-[10px] text-gray-400">{postReport.overallGrade}</div>
+                                                                                    </div>
+                                                                                </div>
+                                                                                {postReport.executiveSummary && (
+                                                                                    <p className="text-[11px] text-gray-400 leading-relaxed">{postReport.executiveSummary}</p>
+                                                                                )}
+                                                                                <div className="grid grid-cols-2 gap-2">
+                                                                                    {Object.entries(postReport.dimensions || {}).map(([key, value]) => (
+                                                                                        <div key={key} className="p-2 rounded-lg bg-gray-900/40 border border-gray-800/60">
+                                                                                            <div className="text-[9px] text-gray-500 uppercase tracking-widest">{key.replace(/([A-Z])/g, ' $1')}</div>
+                                                                                            <div className="text-xs text-gray-200 font-semibold">{value?.score}/10</div>
+                                                                                            {value?.assessment && (
+                                                                                                <div className="text-[10px] text-gray-500 mt-0.5">{value.assessment}</div>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                                {postReport.strengths?.length > 0 && (
+                                                                                    <div>
+                                                                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Strengths</span>
+                                                                                        <ul className="mt-1 space-y-1">
+                                                                                            {postReport.strengths.map((item, i) => (
+                                                                                                <li key={i} className="text-[11px] text-gray-300 flex items-start gap-1.5">
+                                                                                                    <span className="mt-1 w-1 h-1 rounded-full bg-mongodb-neon/70" />
+                                                                                                    {item}
+                                                                                                </li>
+                                                                                            ))}
+                                                                                        </ul>
+                                                                                    </div>
+                                                                                )}
+                                                                                {postReport.areasForImprovement?.length > 0 && (
+                                                                                    <div>
+                                                                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Areas For Improvement</span>
+                                                                                        <ul className="mt-1 space-y-1">
+                                                                                            {postReport.areasForImprovement.map((item, i) => (
+                                                                                                <li key={i} className="text-[11px] text-gray-300 flex items-start gap-1.5">
+                                                                                                    <span className="mt-1 w-1 h-1 rounded-full bg-yellow-400/70" />
+                                                                                                    {item}
+                                                                                                </li>
+                                                                                            ))}
+                                                                                        </ul>
+                                                                                    </div>
+                                                                                )}
+                                                                                {postReport.hiringRecommendation && (
+                                                                                    <div className="text-[11px] text-gray-400">
+                                                                                        Recommendation: <span className="text-gray-200 font-semibold">{postReport.hiringRecommendation}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                        {!postReport && (
+                                                                            <div className="p-4 rounded-xl bg-gray-900/30 border border-gray-800 text-xs text-gray-500">
+                                                                                Post-interview report not generated yet
+                                                                            </div>
+                                                                        )}
                                                                         {/* Fit Score Hero */}
                                                                         {report?.fitAnalysis && (() => {
                                                                             const sc = scoreColor(fitScore);

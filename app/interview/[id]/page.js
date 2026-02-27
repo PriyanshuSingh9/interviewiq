@@ -18,37 +18,11 @@ import {
   Wifi,
   WifiOff,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
+import { use } from "react";
 import { GeminiLiveSession } from "@/lib/gemini-live";
-
-// ─────────────────────────────────────────
-// Mock data
-// ─────────────────────────────────────────
-const CANDIDATE = {
-  name: "Priya Sharma",
-  role: "Senior Frontend Engineer",
-  avatar: "PS",
-  experience: "5 years",
-  applyFor: "Principal Engineer – Growth Pod",
-};
-
-// Transcript is now populated live from Gemini
-
-const EVALUATION_CRITERIA = [
-  { label: "Problem Solving", score: 4, max: 5 },
-  { label: "Communication", score: 3, max: 5 },
-  { label: "Technical Depth", score: 4, max: 5 },
-  { label: "Culture Fit", score: null, max: 5 },
-];
-
-const QUESTIONS_BANK = [
-  { id: 1, category: "Behavioral", text: "Tell me about a time you led a difficult technical decision.", done: true },
-  { id: 2, category: "Technical", text: "Describe your experience with state management at scale.", done: true },
-  { id: 3, category: "System Design", text: "Design a real-time collaborative document editor.", done: false },
-  { id: 4, category: "Technical", text: "How do you approach performance optimization in SPAs?", done: false },
-  { id: 5, category: "Behavioral", text: "How do you handle disagreements with your manager?", done: false },
-];
 
 // ─────────────────────────────────────────
 // Helpers
@@ -64,7 +38,6 @@ function useTimer() {
   return `${mm}:${ss}`;
 }
 
-
 function CategoryBadge({ cat }) {
   const map = {
     Behavioral: "bg-blue-500/15 text-blue-400 border-blue-500/30",
@@ -79,17 +52,34 @@ function CategoryBadge({ cat }) {
 }
 
 // ─────────────────────────────────────────
+// Extract questions from the pre-interview report
+// ─────────────────────────────────────────
+function buildQuestionsFromReport(report) {
+  if (!report?.interviewPlan?.rounds) return [];
+  let id = 0;
+  const questions = [];
+  for (const round of report.interviewPlan.rounds) {
+    const category = round.name || round.focus || "General";
+    for (const q of (round.suggestedQuestions || [])) {
+      id++;
+      questions.push({ id, category, text: q, done: false });
+    }
+  }
+  return questions.length > 0 ? questions : [];
+}
+
+// ─────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────
 export default function InterviewRoom({ params }) {
+  const { id: sessionId } = use(params);
   const elapsed = useTimer();
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [activePanel, setActivePanel] = useState("transcript"); // open transcript by default
   const [chatMsg, setChatMsg] = useState("");
   const [notes, setNotes] = useState("");
-  const [scores, setScores] = useState({ "Problem Solving": 4, Communication: 3, "Technical Depth": 4, "Culture Fit": 0 });
-  const [questions, setQuestions] = useState(QUESTIONS_BANK);
+  const [questions, setQuestions] = useState([]);
   const [transcript, setTranscript] = useState([]);  // live transcript from Gemini
   const [candidateSpeaking, setCandidateSpeaking] = useState(false);
   const [aiSpeaking, setAiSpeaking] = useState(false);
@@ -98,6 +88,50 @@ export default function InterviewRoom({ params }) {
   const transcriptRef = useRef(null);
   const geminiRef = useRef(null);     // GeminiLiveSession instance
 
+  // ── Session data from API ──────────────────────────────
+  const [sessionData, setSessionData] = useState(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [sessionError, setSessionError] = useState(null);
+
+  // Derived candidate info from the pre-interview report
+  const report = sessionData?.preInterviewReport;
+  const candidateName = report?.candidateSummary?.name || "Candidate";
+  const candidateRole = sessionData?.targetRole || report?.levelCalibration?.appliedLevel || "Software Engineer";
+
+  // ── Fetch session data on mount ────────────────────────
+  useEffect(() => {
+    async function loadSession() {
+      try {
+        const res = await fetch(`/api/session/${sessionId}`);
+        if (!res.ok) {
+          let errorMsg = "Session not found";
+          try {
+            const data = await res.json();
+            errorMsg = data.error || errorMsg;
+          } catch {
+            // Response wasn't JSON (e.g., Clerk redirect)
+            errorMsg = res.status === 401 ? "Please sign in to access this interview" : "Session not found or invalid";
+          }
+          throw new Error(errorMsg);
+        }
+        const { session } = await res.json();
+        setSessionData(session);
+
+        // Build questions from the interview plan
+        if (session.preInterviewReport) {
+          const qs = buildQuestionsFromReport(session.preInterviewReport);
+          setQuestions(qs);
+        }
+      } catch (err) {
+        console.error("Failed to load session:", err);
+        setSessionError(err.message);
+      } finally {
+        setSessionLoading(false);
+      }
+    }
+    loadSession();
+  }, [sessionId]);
+
   // ── Candidate webcam + mic ──────────────────────────
   const videoRef = useRef(null);      // <video> element
   const streamRef = useRef(null);     // MediaStream object
@@ -105,8 +139,10 @@ export default function InterviewRoom({ params }) {
   const analyserRef = useRef(null);   // AnalyserNode
   const rafIdRef = useRef(null);      // requestAnimationFrame ID
 
-  // Request camera + mic once on mount
+  // Request camera + mic once session data is loaded
   useEffect(() => {
+    if (sessionLoading || sessionError) return;
+
     async function startMedia() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -125,20 +161,15 @@ export default function InterviewRoom({ params }) {
 
         const source = audioCtx.createMediaStreamSource(stream);
         const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 256;          // smaller = faster, less detail (good for detection)
-        analyser.smoothingTimeConstant = 0.5;  // smooth out spikes
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.5;
         source.connect(analyser);
-        // NOTE: we do NOT connect analyser to audioCtx.destination
-        // — that would play your own mic back to you (echo!)
         analyserRef.current = analyser;
 
-        // Start the audio level polling loop
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
         function checkAudioLevel() {
           analyser.getByteFrequencyData(dataArray);
-
-          // Calculate average volume across all frequency bins
           let sum = 0;
           let max = 0;
           for (let i = 0; i < dataArray.length; i++) {
@@ -146,10 +177,7 @@ export default function InterviewRoom({ params }) {
             if (dataArray[i] > max) max = dataArray[i];
           }
           const average = sum / dataArray.length;
-
-          // Tweak thresholds so the indicator is less sensitive to background noise
-          setCandidateSpeaking(average > 25 || max > 70);        // (typical silence is 0-5, speech is 20-80+)
-
+          setCandidateSpeaking(average > 25 || max > 70);
           rafIdRef.current = requestAnimationFrame(checkAudioLevel);
         }
         checkAudioLevel();
@@ -160,7 +188,6 @@ export default function InterviewRoom({ params }) {
     }
     startMedia();
 
-    // Cleanup: stop all tracks + close audio context
     return () => {
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       if (audioCtxRef.current) audioCtxRef.current.close();
@@ -170,7 +197,7 @@ export default function InterviewRoom({ params }) {
       }
       setMediaStream(null);
     };
-  }, []);
+  }, [sessionLoading, sessionError]);
 
   // Toggle the real mic track on/off
   const toggleMic = useCallback(() => {
@@ -179,7 +206,6 @@ export default function InterviewRoom({ params }) {
       if (streamRef.current) {
         streamRef.current.getAudioTracks().forEach((t) => (t.enabled = next));
       }
-      // When muted, immediately stop the speaking indicator
       if (!next) setCandidateSpeaking(false);
       return next;
     });
@@ -197,21 +223,18 @@ export default function InterviewRoom({ params }) {
   }, []);
 
   // ── Connect Gemini Live when stream is ready ────────
-  // Uses mediaStream STATE (not ref) so React reliably re-runs this effect
   useEffect(() => {
-    if (!mediaStream) return;
+    if (!mediaStream || !sessionData) return;
 
-    // Reset transcript for new session
     setTranscript([]);
     setGeminiStatus("idle");
 
     const session = new GeminiLiveSession({
       stream: mediaStream,
+      systemInstruction: sessionData.systemPrompt || undefined,
       onTranscript: (role, text) => {
         setTranscript((prev) => {
           const last = prev[prev.length - 1];
-
-          // For AI, text arrives in small stream chunks, so we append to the same bubble
           if (role === "ai") {
             if (last && last.role === "ai") {
               return [
@@ -220,9 +243,6 @@ export default function InterviewRoom({ params }) {
               ];
             }
           }
-
-          // For Candidate, text arrives as a complete finalized/processed phrase.
-          // We always create a new bubble for each complete phrase.
           return [...prev, { role, text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
         });
       },
@@ -238,7 +258,7 @@ export default function InterviewRoom({ params }) {
       session.disconnect();
       geminiRef.current = null;
     };
-  }, [mediaStream]);
+  }, [mediaStream, sessionData]);
 
   // Auto-scroll transcript
   useEffect(() => {
@@ -253,6 +273,33 @@ export default function InterviewRoom({ params }) {
 
   const doneCount = questions.filter((q) => q.done).length;
 
+  // ── Loading / Error states ────────────────────────
+  if (sessionLoading) {
+    return (
+      <div className="h-screen bg-mongodb-bg text-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 size={32} className="text-mongodb-neon animate-spin" />
+          <span className="text-sm text-[#8899A6]">Loading interview session...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (sessionError) {
+    return (
+      <div className="h-screen bg-mongodb-bg text-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4 max-w-md text-center">
+          <AlertTriangle size={32} className="text-red-400" />
+          <h2 className="text-lg font-semibold">Session Not Found</h2>
+          <p className="text-sm text-[#8899A6]">{sessionError}</p>
+          <Link href="/dashboard" className="px-4 py-2 bg-mongodb-neon text-[#001D29] rounded-lg font-semibold text-sm hover:bg-[#68d167] transition-colors">
+            Back to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen bg-mongodb-bg text-white font-sans flex flex-col overflow-hidden select-none">
 
@@ -264,7 +311,7 @@ export default function InterviewRoom({ params }) {
             <span className="font-bold text-sm tracking-tight">InterviewIQ</span>
           </Link>
           <ChevronRight size={14} className="text-[#8899A6]" />
-          <span className="text-sm text-[#8899A6] font-medium">{CANDIDATE.applyFor}</span>
+          <span className="text-sm text-[#8899A6] font-medium">{candidateRole}</span>
         </div>
 
         <div className="flex items-center gap-3">

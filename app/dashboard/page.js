@@ -696,7 +696,37 @@ export default function Dashboard() {
             <div className="fixed bottom-0 left-0 right-0 p-3 bg-mongodb-bg/95 backdrop-blur-lg border-t border-gray-800 z-40">
                 <div className="max-w-7xl mx-auto flex items-center justify-end gap-4">
 
-                    {/* CTA Button */}
+                    {/* Coding Round CTA */}
+                    <button
+                        disabled={!isReady || preparing}
+                        onClick={() => {
+                            if (isReady) {
+                                router.push(`/coding/${sessionId}`);
+                            }
+                        }}
+                        className={`w-full md:w-[30%] lg:w-[25%] font-semibold py-2.5 px-5 rounded-xl shadow-xl flex items-center gap-3 transition-all duration-300 
+                            ${isReady
+                                ? 'bg-purple-500 text-white cursor-pointer hover:bg-purple-400 hover:scale-[1.02] active:scale-[0.98]'
+                                : 'bg-mongodb-card border border-gray-800 text-gray-500 cursor-not-allowed hover:border-gray-700'
+                            }`}
+                    >
+                        <div className="flex-1 text-left pl-1">
+                            <span className="text-base block leading-tight">Coding Round</span>
+                            <span className={`block text-[10px] font-normal uppercase tracking-widest font-mono transition-colors mt-0.5 ${isReady ? 'text-white/70' : 'text-gray-600'}`}>
+                                {preparing ? 'Preparing...' : isReady ? 'DSA & Bug Fix' : 'Requires Prepared Plan'}
+                            </span>
+                        </div>
+                        <div className={`p-2 rounded-lg flex items-center justify-center transition-colors ${isReady ? 'bg-white/10 text-white' : 'bg-gray-900 border border-gray-800 text-gray-600'
+                            }`}>
+                            {preparing ? (
+                                <Loader2 size={20} className="animate-spin" />
+                            ) : (
+                                <Code2 size={20} />
+                            )}
+                        </div>
+                    </button>
+
+                    {/* Interview CTA */}
                     <button
                         disabled={!isReady || preparing}
                         onClick={() => {

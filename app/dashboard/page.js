@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { useUser } from '@clerk/nextjs';
 import { saveUser } from '@/app/actions/saveUser';
 import { useRouter } from 'next/navigation';
-import { Paperclip, Link as LinkIcon, Clipboard, Check, PlayCircle, Zap, Clock, Lock, List, Loader2, AlertCircle, ChevronDown, ChevronUp, RotateCcw, Plus } from 'lucide-react';
+import { Paperclip, Link as LinkIcon, Clipboard, Check, PlayCircle, Zap, Clock, Lock, List, Loader2, AlertCircle, ChevronDown, ChevronUp, RotateCcw, Plus, Code2 } from 'lucide-react';
 
 export default function Dashboard() {
     const { user, isLoaded } = useUser();
@@ -611,6 +611,10 @@ export default function Dashboard() {
                                     </div>
                                 )}
 
+                            </div>
+
+                            {/* Right Column */}
+                            <div className="space-y-6">
                                 {/* Level Calibration */}
                                 {report.levelCalibration?.calibrationNotes && (
                                     <div className="p-5 rounded-xl bg-gray-900/30 border border-gray-800 space-y-3">
@@ -629,10 +633,6 @@ export default function Dashboard() {
                                         <p className="text-xs text-gray-400 leading-relaxed">{report.levelCalibration.calibrationNotes}</p>
                                     </div>
                                 )}
-                            </div>
-
-                            {/* Right Column */}
-                            <div className="space-y-6">
                                 {/* GitHub Assessment */}
                                 {report.githubAssessment && (
                                     <div className="p-5 rounded-xl bg-gray-900/30 border border-gray-800 space-y-4">
@@ -658,14 +658,7 @@ export default function Dashboard() {
                                                 {repo.architecturalObservations && (
                                                     <p className="text-xs text-gray-400 leading-relaxed">{repo.architecturalObservations}</p>
                                                 )}
-                                                {repo.specificQuestions?.length > 0 && (
-                                                    <div className="space-y-1.5 pt-2 border-t border-gray-800/50">
-                                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Probe Questions</span>
-                                                        {repo.specificQuestions.map((q, j) => (
-                                                            <p key={j} className="text-[11px] text-gray-500 italic pl-3 border-l-2 border-gray-700">"{q}"</p>
-                                                        ))}
-                                                    </div>
-                                                )}
+
                                             </div>
                                         ))}
 
@@ -696,7 +689,37 @@ export default function Dashboard() {
             <div className="fixed bottom-0 left-0 right-0 p-3 bg-mongodb-bg/95 backdrop-blur-lg border-t border-gray-800 z-40">
                 <div className="max-w-7xl mx-auto flex items-center justify-end gap-4">
 
-                    {/* CTA Button */}
+                    {/* Coding Round CTA */}
+                    <button
+                        disabled={!isReady || preparing}
+                        onClick={() => {
+                            if (isReady) {
+                                router.push(`/coding/${sessionId}`);
+                            }
+                        }}
+                        className={`w-full md:w-[30%] lg:w-[25%] font-semibold py-2.5 px-5 rounded-xl shadow-xl flex items-center gap-3 transition-all duration-300 
+                            ${isReady
+                                ? 'bg-purple-500 text-white cursor-pointer hover:bg-purple-400 hover:scale-[1.02] active:scale-[0.98]'
+                                : 'bg-mongodb-card border border-gray-800 text-gray-500 cursor-not-allowed hover:border-gray-700'
+                            }`}
+                    >
+                        <div className="flex-1 text-left pl-1">
+                            <span className="text-base block leading-tight">Coding Round</span>
+                            <span className={`block text-[10px] font-normal uppercase tracking-widest font-mono transition-colors mt-0.5 ${isReady ? 'text-white/70' : 'text-gray-600'}`}>
+                                {preparing ? 'Preparing...' : isReady ? 'DSA & Bug Fix' : 'Requires Prepared Plan'}
+                            </span>
+                        </div>
+                        <div className={`p-2 rounded-lg flex items-center justify-center transition-colors ${isReady ? 'bg-white/10 text-white' : 'bg-gray-900 border border-gray-800 text-gray-600'
+                            }`}>
+                            {preparing ? (
+                                <Loader2 size={20} className="animate-spin" />
+                            ) : (
+                                <Code2 size={20} />
+                            )}
+                        </div>
+                    </button>
+
+                    {/* Interview CTA */}
                     <button
                         disabled={!isReady || preparing}
                         onClick={() => {

@@ -23,6 +23,7 @@ import {
 import Link from "next/link";
 import { use } from "react";
 import { GeminiLiveSession } from "@/lib/gemini-live";
+import { InterruptEngine } from "@/lib/interrupt-engine";
 
 // ─────────────────────────────────────────
 // Helpers
@@ -87,6 +88,7 @@ export default function InterviewRoom({ params }) {
   const [mediaStream, setMediaStream] = useState(null);  // triggers Gemini connection reliably
   const transcriptRef = useRef(null);
   const geminiRef = useRef(null);     // GeminiLiveSession instance
+  const interruptEngineRef = useRef(null); // InterruptEngine instance
 
   // ── Session data from API ──────────────────────────────
   const [sessionData, setSessionData] = useState(null);
@@ -178,6 +180,11 @@ export default function InterviewRoom({ params }) {
           }
           const average = sum / dataArray.length;
           setCandidateSpeaking(average > 25 || max > 70);
+
+          // Feed speaking state to interrupt engine
+          if (interruptEngineRef.current) {
+            interruptEngineRef.current.updateSpeakingState(average > 25 || max > 70);
+          }
           rafIdRef.current = requestAnimationFrame(checkAudioLevel);
         }
         checkAudioLevel();
@@ -226,8 +233,27 @@ export default function InterviewRoom({ params }) {
   useEffect(() => {
     if (!mediaStream || !sessionData) return;
 
-    setTranscript([]);
-    setGeminiStatus("idle");
+    // ── Set up Interrupt Engine ──────────────────────
+    const engine = new InterruptEngine({
+      threshold: 8,
+      minElapsedSeconds: 15,
+      cooldownBase: 45,
+      cooldownVariance: 15,
+      checkIntervalMs: 3500,
+      onInterrupt: (interruptType, prompt) => {
+        console.log("[InterruptEngine] 🔴 Firing interrupt:", interruptType.type, interruptType.reason);
+        if (geminiRef.current) {
+          geminiRef.current.triggerInterrupt(prompt);
+        }
+      },
+      onScoreUpdate: (data) => {
+        // Debug logging — can be connected to a dev panel later
+        if (data.score >= 5) {
+          console.log(`[InterruptEngine] Score: ${data.score}/${data.threshold}`, data.signals);
+        }
+      },
+    });
+    interruptEngineRef.current = engine;
 
     const session = new GeminiLiveSession({
       stream: mediaStream,
@@ -246,7 +272,19 @@ export default function InterviewRoom({ params }) {
           return [...prev, { role, text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }];
         });
       },
-      onAiSpeaking: (speaking) => setAiSpeaking(speaking),
+      onCandidateChunk: (text) => {
+        // Feed real-time transcript to the interrupt engine
+        if (interruptEngineRef.current) {
+          interruptEngineRef.current.feedTranscript(text);
+        }
+      },
+      onAiSpeaking: (speaking) => {
+        setAiSpeaking(speaking);
+        // Tell the interrupt engine when AI is speaking (don't evaluate during AI speech)
+        if (interruptEngineRef.current) {
+          interruptEngineRef.current.updateAiSpeakingState(speaking);
+        }
+      },
       onStatusChange: (status) => setGeminiStatus(status),
       onError: (err) => console.error("[Gemini]", err),
     });
@@ -254,9 +292,14 @@ export default function InterviewRoom({ params }) {
     geminiRef.current = session;
     session.connect();
 
+    // Start the interrupt engine — default question type until we know better
+    engine.start("general", "");
+
     return () => {
       session.disconnect();
       geminiRef.current = null;
+      engine.destroy();
+      interruptEngineRef.current = null;
     };
   }, [mediaStream, sessionData]);
 

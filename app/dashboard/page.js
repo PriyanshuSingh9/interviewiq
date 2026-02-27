@@ -611,6 +611,10 @@ export default function Dashboard() {
                                     </div>
                                 )}
 
+                            </div>
+
+                            {/* Right Column */}
+                            <div className="space-y-6">
                                 {/* Level Calibration */}
                                 {report.levelCalibration?.calibrationNotes && (
                                     <div className="p-5 rounded-xl bg-gray-900/30 border border-gray-800 space-y-3">
@@ -629,10 +633,6 @@ export default function Dashboard() {
                                         <p className="text-xs text-gray-400 leading-relaxed">{report.levelCalibration.calibrationNotes}</p>
                                     </div>
                                 )}
-                            </div>
-
-                            {/* Right Column */}
-                            <div className="space-y-6">
                                 {/* GitHub Assessment */}
                                 {report.githubAssessment && (
                                     <div className="p-5 rounded-xl bg-gray-900/30 border border-gray-800 space-y-4">
@@ -658,14 +658,7 @@ export default function Dashboard() {
                                                 {repo.architecturalObservations && (
                                                     <p className="text-xs text-gray-400 leading-relaxed">{repo.architecturalObservations}</p>
                                                 )}
-                                                {repo.specificQuestions?.length > 0 && (
-                                                    <div className="space-y-1.5 pt-2 border-t border-gray-800/50">
-                                                        <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Probe Questions</span>
-                                                        {repo.specificQuestions.map((q, j) => (
-                                                            <p key={j} className="text-[11px] text-gray-500 italic pl-3 border-l-2 border-gray-700">"{q}"</p>
-                                                        ))}
-                                                    </div>
-                                                )}
+
                                             </div>
                                         ))}
 

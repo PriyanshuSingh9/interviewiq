@@ -105,6 +105,7 @@ export default function InterviewRoom({ params }) {
   const [codingTimeLeft, setCodingTimeLeft] = useState(null); // in seconds
   const [isSubmittingCode, setIsSubmittingCode] = useState(false);
   const timerRef = useRef(null);
+  const codingForcedRef = useRef(false);
 
   // ── Session data from API ──────────────────────────────
   const [sessionData, setSessionData] = useState(null);
@@ -372,6 +373,7 @@ export default function InterviewRoom({ params }) {
       },
       onStatusChange: (status) => setGeminiStatus(status),
       onError: (err) => console.error("[Gemini]", err),
+      onEndCall: triggerEndInterview,
     });
 
     geminiRef.current = session;
@@ -424,6 +426,26 @@ export default function InterviewRoom({ params }) {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [sessionId]);
+
+
+  // Aggressive Demo Mode Enforcement: Pre-emptively intercept AI's 3rd turn for coding round
+  useEffect(() => {
+    if (codingForcedRef.current || !geminiRef.current || codingMode || endingRef.current) return;
+
+    // Count how many discrete AI turns have completed.
+    const aiTurns = transcript.filter(t => t.role === "ai").length;
+
+    // Arm the interceptor right after the 2nd AI turn is registered.
+    // The next time the AI attempts to speak (Turn 3), it will be silently aborted and forced to transition.
+    if (aiTurns === 2) {
+      codingForcedRef.current = true;
+      console.log("[InterviewIQ] Arming silent pre-emptive intercept for Turn 3 Coding Transition");
+
+      geminiRef.current.interceptNextTurn(
+        "SYSTEM INSTRUCTION: The candidate has finished answering your 2nd question. You MUST now transition to the coding challenge. Do NOT ask any more behavioral questions. Say ONLY 'Let's move to a coding challenge.' and give a coding problem inside <PROBLEM>...</PROBLEM> tags."
+      );
+    }
+  }, [transcript, codingMode]);
 
   // Timer countdown logic
   useEffect(() => {
@@ -715,7 +737,7 @@ export default function InterviewRoom({ params }) {
                     <div className="flex-1">
                       <h3 className="text-sm font-semibold text-white mb-2">Problem Statement</h3>
                       <p className="text-sm text-[#E8EDF0] leading-relaxed whitespace-pre-wrap font-mono bg-black/40 p-4 rounded-lg border border-white/5">
-                        {codingQuestion || "Listen to the AI Interviewer for the prompt. Write your solution in the editor below and click Submit when ready."}
+                        {codingQuestion || "The AI Interviewer has not assigned a coding problem yet. Please wait for instructions."}
                       </p>
                     </div>
                   </div>

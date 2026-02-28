@@ -101,7 +101,7 @@ export default function ReportPage({ params }) {
                     generationStartedRef.current = false; // allow retry on error
                 }
             } finally {
-                if (active) setGenerating(false);
+                setGenerating(false); // ALWAYS reset generating state to avoid UI getting stuck
             }
         };
 

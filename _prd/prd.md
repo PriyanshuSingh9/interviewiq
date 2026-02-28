@@ -231,13 +231,13 @@ CodingSubmission
 
 ---
 
-## 9. Post-Interview Report (Phase 3 — 🔶 PARTIAL)
+## 9. Post-Interview Report (Phase 3 — ✅ COMPLETE)
 
 | Step | Module | Status |
 |------|--------|--------|
-| Transcript processing API | `app/api/process-transcript/route.js` | ⚠️ Placeholder |
-| Report generation (Gemini) | — | ❌ Not started |
-| Post-interview report display | Integrated into Reports Hub | ⚠️ Schema ready, no data yet |
+| Transcript persistence | PostgreSQL `transcript` column in `InterviewSessions` | ✅ Done |
+| Report generation (Gemini) | `lib/post-interview/reportGenerator.js` | ✅ Done |
+| Post-interview report display | Integrated into `/report/[sessionId]` and Reports Hub | ✅ Done |
 
 ---
 

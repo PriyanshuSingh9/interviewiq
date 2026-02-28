@@ -63,7 +63,7 @@ export async function POST(req) {
 
         await db
             .update(interviewSessions)
-            .set({ postInterviewReport: persistedReport })
+            .set({ postInterviewReport: persistedReport, transcript })
             .where(eq(interviewSessions.id, sessionId));
 
         if (report?.error) {

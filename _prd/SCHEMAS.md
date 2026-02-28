@@ -41,8 +41,9 @@ InterviewSessions (
   presetId            TEXT NOT NULL → InterviewPreset.id,
   audioLocation       TEXT,        -- nullable
   preInterviewReport  JSONB,       -- see Pre-Interview Report Schema below
-  postInterviewReport JSONB,       -- planned, see Post-Interview Report Schema
+  postInterviewReport JSONB,       -- see Post-Interview Report Schema
   systemPrompt        TEXT,
+  transcript          JSONB,       -- array of transcript fragments
   createdAt           TIMESTAMP DEFAULT NOW()
 )
 ```

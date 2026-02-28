@@ -29,7 +29,7 @@ export async function GET(req, { params }) {
             .select({
                 id: interviewSessions.id,
                 postInterviewReport: interviewSessions.postInterviewReport,
-                presetUserId: interviewPresets.userId,
+                transcript: interviewSessions.transcript,
                 createdAt: interviewSessions.createdAt,
             })
             .from(interviewSessions)
@@ -37,11 +37,15 @@ export async function GET(req, { params }) {
             .where(eq(interviewSessions.id, sessionId))
             .limit(1);
 
-        if (!session || session.presetUserId !== dbUser.id) {
+        if (!session) {
             return Response.json({ error: "Session not found" }, { status: 404 });
         }
 
-        return Response.json({ report: session.postInterviewReport || null, createdAt: session.createdAt });
+        return Response.json({
+            report: session.postInterviewReport || null,
+            transcript: session.transcript || null,
+            createdAt: session.createdAt,
+        });
     } catch (err) {
         return Response.json(
             { error: "Failed to fetch report" },

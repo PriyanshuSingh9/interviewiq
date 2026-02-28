@@ -162,9 +162,9 @@ export default function ReportsPage() {
                             return (
                                 <div key={preset.id} className="bg-mongodb-card border border-gray-800 rounded-2xl overflow-hidden shadow-xl transition-all duration-200 hover:border-gray-700">
                                     {/* ── Preset Header ── */}
-                                    <button
+                                    <div
                                         onClick={() => togglePreset(preset.id)}
-                                        className="w-full flex items-center gap-4 p-5 text-left group transition-colors hover:bg-white/[0.015]"
+                                        className="w-full flex items-center gap-4 p-5 text-left group transition-colors hover:bg-white/[0.015] cursor-pointer"
                                     >
                                         <div className="w-10 h-10 rounded-xl bg-mongodb-neon/10 border border-mongodb-neon/20 flex items-center justify-center shrink-0 group-hover:bg-mongodb-neon/15 transition-colors">
                                             <Briefcase size={18} className="text-mongodb-neon" />
@@ -184,11 +184,18 @@ export default function ReportsPage() {
                                                 )}
                                             </div>
                                         </div>
+                                        <Link
+                                            href="/dashboard"
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-gray-700/50 rounded-lg text-[11px] font-semibold text-gray-300 transition-colors shrink-0 hidden sm:flex items-center gap-1.5"
+                                        >
+                                            Create Session <ChevronRight size={12} />
+                                        </Link>
                                         <span className="text-[10px] font-mono text-gray-500 bg-gray-800/80 px-2.5 py-1 rounded-full shrink-0">
                                             {preset.sessions.length} session{preset.sessions.length !== 1 ? 's' : ''}
                                         </span>
                                         <ChevronDown size={16} className={`text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                                    </button>
+                                    </div>
 
                                     {/* ── Sessions ── */}
                                     {isExpanded && (
@@ -249,84 +256,6 @@ export default function ReportsPage() {
 
                                                                     {/* ── Left Column ── */}
                                                                     <div className="space-y-3">
-                                                                        {postReport?.error && (
-                                                                            <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/20 space-y-2">
-                                                                                <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Post-Interview Report</span>
-                                                                                <p className="text-xs text-red-200/80">{postReport.error}</p>
-                                                                                {regenerateError && (
-                                                                                    <p className="text-[11px] text-red-300/80">{regenerateError}</p>
-                                                                                )}
-                                                                                <button
-                                                                                    onClick={() => regenerateReport(session.id, postReport.transcript)}
-                                                                                    disabled={!canRegenerate || regeneratingId === session.id}
-                                                                                    className={`text-xs px-3 py-1.5 rounded-lg border ${!canRegenerate || regeneratingId === session.id ? 'border-red-500/20 text-red-300/60 cursor-not-allowed' : 'border-red-500/40 text-red-300 hover:text-red-200 hover:border-red-500/60'}`}
-                                                                                >
-                                                                                    {regeneratingId === session.id ? 'Regenerating...' : 'Regenerate Report'}
-                                                                                </button>
-                                                                            </div>
-                                                                        )}
-                                                                        {postReport && !postReport.error && (
-                                                                            <div className="p-4 rounded-xl bg-gray-900/30 border border-gray-800 space-y-3">
-                                                                                <div className="flex items-start justify-between">
-                                                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Post-Interview Report</span>
-                                                                                    <div className="text-right">
-                                                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Overall</span>
-                                                                                        <div className="text-xl font-mono font-bold text-mongodb-neon">{postReport.overallScore}/100</div>
-                                                                                        <div className="text-[10px] text-gray-400">{postReport.overallGrade}</div>
-                                                                                    </div>
-                                                                                </div>
-                                                                                {postReport.executiveSummary && (
-                                                                                    <p className="text-[11px] text-gray-400 leading-relaxed">{postReport.executiveSummary}</p>
-                                                                                )}
-                                                                                <div className="grid grid-cols-2 gap-2">
-                                                                                    {Object.entries(postReport.dimensions || {}).map(([key, value]) => (
-                                                                                        <div key={key} className="p-2 rounded-lg bg-gray-900/40 border border-gray-800/60">
-                                                                                            <div className="text-[9px] text-gray-500 uppercase tracking-widest">{key.replace(/([A-Z])/g, ' $1')}</div>
-                                                                                            <div className="text-xs text-gray-200 font-semibold">{value?.score}/10</div>
-                                                                                            {value?.assessment && (
-                                                                                                <div className="text-[10px] text-gray-500 mt-0.5">{value.assessment}</div>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    ))}
-                                                                                </div>
-                                                                                {postReport.strengths?.length > 0 && (
-                                                                                    <div>
-                                                                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Strengths</span>
-                                                                                        <ul className="mt-1 space-y-1">
-                                                                                            {postReport.strengths.map((item, i) => (
-                                                                                                <li key={i} className="text-[11px] text-gray-300 flex items-start gap-1.5">
-                                                                                                    <span className="mt-1 w-1 h-1 rounded-full bg-mongodb-neon/70" />
-                                                                                                    {item}
-                                                                                                </li>
-                                                                                            ))}
-                                                                                        </ul>
-                                                                                    </div>
-                                                                                )}
-                                                                                {postReport.areasForImprovement?.length > 0 && (
-                                                                                    <div>
-                                                                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Areas For Improvement</span>
-                                                                                        <ul className="mt-1 space-y-1">
-                                                                                            {postReport.areasForImprovement.map((item, i) => (
-                                                                                                <li key={i} className="text-[11px] text-gray-300 flex items-start gap-1.5">
-                                                                                                    <span className="mt-1 w-1 h-1 rounded-full bg-yellow-400/70" />
-                                                                                                    {item}
-                                                                                                </li>
-                                                                                            ))}
-                                                                                        </ul>
-                                                                                    </div>
-                                                                                )}
-                                                                                {postReport.hiringRecommendation && (
-                                                                                    <div className="text-[11px] text-gray-400">
-                                                                                        Recommendation: <span className="text-gray-200 font-semibold">{postReport.hiringRecommendation}</span>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        )}
-                                                                        {!postReport && (
-                                                                            <div className="p-4 rounded-xl bg-gray-900/30 border border-gray-800 text-xs text-gray-500">
-                                                                                Post-interview report not generated yet
-                                                                            </div>
-                                                                        )}
                                                                         {/* Fit Score Hero */}
                                                                         {report?.fitAnalysis && (() => {
                                                                             const sc = scoreColor(fitScore);
@@ -436,57 +365,7 @@ export default function ReportsPage() {
                                                                                 )}
                                                                             </div>
                                                                         )}
-                                                                        {/* Coding Round Card */}
-                                                                        {codingRound ? (
-                                                                            <div className={`p-5 rounded-xl border ${codingRound.status === 'completed'
-                                                                                ? 'border-purple-500/20 bg-purple-500/5 shadow-[0_0_20px_rgba(139,92,246,0.06)]'
-                                                                                : 'border-yellow-400/20 bg-yellow-400/5'
-                                                                                }`}>
-                                                                                <div className="flex items-start justify-between mb-3">
-                                                                                    <div>
-                                                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                                                                                            <Code2 size={12} className="text-purple-400" /> Coding Round
-                                                                                        </span>
-                                                                                        {codingRound.status === 'completed' && (
-                                                                                            <span className={`text-3xl font-mono font-bold mt-1 block ${codingRound.overallScore >= 70 ? 'text-purple-400' : codingRound.overallScore >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
-                                                                                                {codingRound.overallScore}/100
-                                                                                            </span>
-                                                                                        )}
-                                                                                    </div>
-                                                                                    {codingRound.status === 'completed' && (
-                                                                                        <div className="w-12 h-12 rounded-full border-2 border-purple-500/20 flex items-center justify-center">
-                                                                                            <Code2 size={18} className="text-purple-400" />
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                                {codingRound.status === 'completed' && (
-                                                                                    <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden mb-3">
-                                                                                        <div className="h-full rounded-full bg-purple-400 transition-all" style={{ width: `${codingRound.overallScore}%` }} />
-                                                                                    </div>
-                                                                                )}
-                                                                                {codingRound.overallFeedback && (
-                                                                                    <p className="text-xs text-gray-400 leading-relaxed">{codingRound.overallFeedback}</p>
-                                                                                )}
-                                                                                {codingRound.status !== 'completed' && (
-                                                                                    <div className="mt-2">
-                                                                                        <span className="text-xs text-yellow-400 font-mono">In Progress</span>
-                                                                                        <Link href={`/coding/${session.id}`} className="mt-2 inline-flex items-center gap-1 text-xs text-mongodb-neon hover:underline">
-                                                                                            Continue <ExternalLink size={10} />
-                                                                                        </Link>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        ) : (
-                                                                            <div className="p-5 rounded-xl border border-gray-800 bg-gray-900/20">
-                                                                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5 mb-2">
-                                                                                    <Code2 size={12} /> Coding Round
-                                                                                </span>
-                                                                                <p className="text-xs text-gray-500 mb-2">Not started yet</p>
-                                                                                <Link href={`/coding/${session.id}`} className="inline-flex items-center gap-1 text-xs text-mongodb-neon hover:underline">
-                                                                                    Start Coding Round <ExternalLink size={10} />
-                                                                                </Link>
-                                                                            </div>
-                                                                        )}
+
 
                                                                         {/* GitHub Assessment */}
                                                                         {report?.githubAssessment && (
@@ -539,20 +418,196 @@ export default function ReportsPage() {
                                                                         )}
 
                                                                         {/* Action Buttons */}
-                                                                        <div className="flex gap-2 pt-1">
-                                                                            <Link
-                                                                                href={`/interview/${session.id}`}
-                                                                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-mongodb-neon text-mongodb-bg text-xs font-semibold hover:bg-[#68d167] transition-all hover:scale-[1.01] active:scale-[0.99]"
-                                                                            >
-                                                                                Start Interview <ExternalLink size={10} />
-                                                                            </Link>
-                                                                            <Link
-                                                                                href={`/coding/${session.id}`}
-                                                                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-purple-500 text-white text-xs font-semibold hover:bg-purple-400 transition-all hover:scale-[1.01] active:scale-[0.99]"
-                                                                            >
-                                                                                Coding Round <Code2 size={10} />
-                                                                            </Link>
-                                                                        </div>
+                                                                        {!(postReport && !postReport.error && codingRound?.status === 'completed') && (
+                                                                            <div className="flex gap-2 pt-1">
+                                                                                <Link
+                                                                                    href={`/interview/${session.id}`}
+                                                                                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-mongodb-neon text-mongodb-bg text-xs font-semibold hover:bg-[#68d167] transition-all hover:scale-[1.01] active:scale-[0.99]"
+                                                                                >
+                                                                                    Start Interview <ExternalLink size={10} />
+                                                                                </Link>
+                                                                                <Link
+                                                                                    href={`/coding/${session.id}`}
+                                                                                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-purple-500 text-white text-xs font-semibold hover:bg-purple-400 transition-all hover:scale-[1.01] active:scale-[0.99]"
+                                                                                >
+                                                                                    Coding Round <Code2 size={10} />
+                                                                                </Link>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    {/* Post Interview Section */}
+                                                                    <div className="col-span-1 lg:col-span-2 mt-2">
+                                                                        {postReport?.error && (
+                                                                            <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/20 space-y-2">
+                                                                                <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest flex items-center gap-1.5">
+                                                                                    <AlertCircle size={12} /> Post-Interview Error
+                                                                                </span>
+                                                                                <p className="text-xs text-red-200/80">{postReport.error}</p>
+                                                                                {regenerateError && (
+                                                                                    <p className="text-[11px] text-red-300/80">{regenerateError}</p>
+                                                                                )}
+                                                                                <button
+                                                                                    onClick={() => regenerateReport(session.id, postReport.transcript)}
+                                                                                    disabled={!canRegenerate || regeneratingId === session.id}
+                                                                                    className={`text-xs px-3 py-1.5 rounded-lg border flex items-center gap-1.5 transition-all w-fit ${!canRegenerate || regeneratingId === session.id ? 'border-red-500/20 text-red-300/60 cursor-not-allowed bg-red-500/5' : 'border-red-500/40 text-red-300 hover:text-red-200 hover:border-red-500/60 hover:bg-red-500/10 active:scale-[0.98]'}`}
+                                                                                >
+                                                                                    {regeneratingId === session.id ? <><Loader2 size={12} className="animate-spin" /> Regenerating...</> : 'Regenerate Report'}
+                                                                                </button>
+                                                                            </div>
+                                                                        )}
+                                                                        {postReport && !postReport.error && (() => {
+                                                                            const sc = scoreColor(postReport.overallScore);
+                                                                            return (
+                                                                                <div className={`p-5 rounded-xl border ${sc.border} ${sc.bg} ${sc.glow} transition-all space-y-4`}>
+                                                                                    <div className="flex items-start justify-between">
+                                                                                        <div>
+                                                                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5 mb-1">
+                                                                                                <BarChart3 size={12} className={sc.text} /> Post-Interview Report
+                                                                                            </span>
+                                                                                            <span className={`text-3xl font-mono font-bold ${sc.text} block`}>
+                                                                                                {postReport.overallScore}/100
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <div className={`w-12 h-12 rounded-full border-2 ${sc.border} flex items-center justify-center shrink-0`}>
+                                                                                            <BarChart3 size={18} className={sc.text} />
+                                                                                        </div>
+                                                                                    </div>
+
+                                                                                    <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                                                                                        <div className={`h-full rounded-full transition-all duration-500 ${postReport.overallScore >= 75 ? 'bg-mongodb-neon' : postReport.overallScore >= 50 ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ width: `${postReport.overallScore}%` }} />
+                                                                                    </div>
+
+                                                                                    {postReport.overallGrade && (
+                                                                                        <div className="flex items-center gap-2">
+                                                                                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border ${sc.border} ${sc.text} bg-white/5`}>
+                                                                                                {postReport.overallGrade}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    )}
+
+                                                                                    {postReport.executiveSummary && (
+                                                                                        <p className="text-xs text-gray-400 leading-relaxed bg-gray-900/40 p-3 rounded-lg border border-gray-800/50">{postReport.executiveSummary}</p>
+                                                                                    )}
+
+                                                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                                                                                        {Object.entries(postReport.dimensions || {}).map(([key, value]) => (
+                                                                                            <div key={key} className="p-2.5 rounded-lg bg-gray-900/50 border border-gray-800/60 transition-colors hover:border-gray-700/60 flex flex-col justify-between">
+                                                                                                <div className="flex items-center justify-between mb-1 gap-2">
+                                                                                                    <div className="text-[9px] text-gray-500 uppercase tracking-widest truncate" title={key.replace(/([A-Z])/g, ' $1')}>{key.replace(/([A-Z])/g, ' $1')}</div>
+                                                                                                    <div className={`text-xs font-mono font-bold shrink-0 ${value?.score >= 8 ? 'text-mongodb-neon' : value?.score >= 5 ? 'text-yellow-400' : 'text-red-400'}`}>{value?.score}/10</div>
+                                                                                                </div>
+                                                                                                {value?.assessment && (
+                                                                                                    <div className="text-[10px] text-gray-400 leading-snug line-clamp-3" title={value.assessment}>{value.assessment}</div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+
+                                                                                    {(postReport.strengths?.length > 0 || postReport.areasForImprovement?.length > 0) && (
+                                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                                                                                            {postReport.strengths?.length > 0 && (
+                                                                                                <div className="space-y-1.5">
+                                                                                                    <span className="text-[9px] font-bold text-mongodb-neon uppercase tracking-widest block">Strengths</span>
+                                                                                                    <ul className="space-y-1.5">
+                                                                                                        {postReport.strengths.slice(0, 4).map((item, i) => (
+                                                                                                            <li key={i} className="text-[11px] text-gray-300 flex items-start gap-1.5 leading-tight">
+                                                                                                                <span className="mt-1 w-1 h-1 rounded-full bg-mongodb-neon shrink-0 shadow-[0_0_5px_rgba(0,237,100,0.5)]" />
+                                                                                                                {item}
+                                                                                                            </li>
+                                                                                                        ))}
+                                                                                                    </ul>
+                                                                                                </div>
+                                                                                            )}
+                                                                                            {postReport.areasForImprovement?.length > 0 && (
+                                                                                                <div className="space-y-1.5">
+                                                                                                    <span className="text-[9px] font-bold text-yellow-400 uppercase tracking-widest block">Growth Areas</span>
+                                                                                                    <ul className="space-y-1.5">
+                                                                                                        {postReport.areasForImprovement.slice(0, 4).map((item, i) => (
+                                                                                                            <li key={i} className="text-[11px] text-gray-300 flex items-start gap-1.5 leading-tight">
+                                                                                                                <span className="mt-1 w-1 h-1 rounded-full bg-yellow-400 shrink-0 shadow-[0_0_5px_rgba(250,204,21,0.5)]" />
+                                                                                                                {item}
+                                                                                                            </li>
+                                                                                                        ))}
+                                                                                                    </ul>
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    )}
+
+                                                                                    {postReport.hiringRecommendation && (
+                                                                                        <div className={`mt-3 p-3 rounded-lg border ${sc.border} bg-white/2`}>
+                                                                                            <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Recommendation</span>
+                                                                                            <span className={`text-sm font-semibold ${sc.text}`}>{postReport.hiringRecommendation}</span>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
+                                                                        {!postReport && (
+                                                                            <div className="p-5 rounded-xl border border-gray-800 bg-gray-900/20 flex flex-col sm:flex-row items-start sm:items-center justify-between text-left col-span-1 lg:col-span-2 gap-4">
+                                                                                <div>
+                                                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
+                                                                                        <FileText size={12} /> Post-Interview Report
+                                                                                    </span>
+                                                                                    <p className="text-xs text-gray-500">Available after the interview completes</p>
+                                                                                </div>
+                                                                                <div className="w-10 h-10 rounded-full border border-gray-800 bg-gray-900/40 flex items-center justify-center opacity-50 shrink-0">
+                                                                                    <FileText size={16} className="text-gray-600" />
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Coding Round Card */}
+                                                                        {codingRound ? (
+                                                                            <div className={`mt-2 p-5 rounded-xl border ${codingRound.status === 'completed'
+                                                                                ? 'border-purple-500/20 bg-purple-500/5 shadow-[0_0_20px_rgba(139,92,246,0.06)]'
+                                                                                : 'border-yellow-400/20 bg-yellow-400/5'
+                                                                                }`}>
+                                                                                <div className="flex items-start justify-between mb-3">
+                                                                                    <div>
+                                                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                                                                                            <Code2 size={12} className="text-purple-400" /> Coding Round
+                                                                                        </span>
+                                                                                        {codingRound.status === 'completed' && (
+                                                                                            <span className={`text-3xl font-mono font-bold mt-1 block ${codingRound.overallScore >= 70 ? 'text-purple-400' : codingRound.overallScore >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                                                                                {codingRound.overallScore}/100
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    {codingRound.status === 'completed' && (
+                                                                                        <div className="w-12 h-12 rounded-full border-2 border-purple-500/20 flex items-center justify-center">
+                                                                                            <Code2 size={18} className="text-purple-400" />
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                                {codingRound.status === 'completed' && (
+                                                                                    <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden mb-3">
+                                                                                        <div className="h-full rounded-full bg-purple-400 transition-all" style={{ width: `${codingRound.overallScore}%` }} />
+                                                                                    </div>
+                                                                                )}
+                                                                                {codingRound.overallFeedback && (
+                                                                                    <p className="text-xs text-gray-400 leading-relaxed">{codingRound.overallFeedback}</p>
+                                                                                )}
+                                                                                {codingRound.status !== 'completed' && (
+                                                                                    <div className="mt-2">
+                                                                                        <span className="text-xs text-yellow-400 font-mono">In Progress</span>
+                                                                                        <Link href={`/coding/${session.id}`} className="mt-2 inline-flex items-center gap-1 text-xs text-mongodb-neon hover:underline">
+                                                                                            Continue <ExternalLink size={10} />
+                                                                                        </Link>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="mt-2 p-5 rounded-xl border border-gray-800 bg-gray-900/20">
+                                                                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5 mb-2">
+                                                                                    <Code2 size={12} /> Coding Round
+                                                                                </span>
+                                                                                <p className="text-xs text-gray-500 mb-2">Not started yet</p>
+                                                                                <Link href={`/coding/${session.id}`} className="inline-flex items-center gap-1 text-xs text-mongodb-neon hover:underline">
+                                                                                    Start Coding Round <ExternalLink size={10} />
+                                                                                </Link>
+                                                                            </div>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             </div>

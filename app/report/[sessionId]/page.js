@@ -34,7 +34,7 @@ export default function ReportPage({ params }) {
         const res = await fetch(`/api/report/${sessionId}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to load report");
-        return data.report;
+        return data;
     }, [sessionId]);
 
     useEffect(() => {
@@ -43,10 +43,16 @@ export default function ReportPage({ params }) {
 
         const poll = async () => {
             try {
-                const existing = await fetchReport();
+                const data = await fetchReport();
                 if (!active) return;
-                if (existing) {
-                    setReport(existing);
+
+                // Fall back to server-provided transcript if it exists
+                if (data?.transcript?.length > 0) {
+                    setTranscript(data.transcript);
+                }
+
+                if (data?.report) {
+                    setReport(data.report);
                     setLoading(false);
                     return;
                 }
